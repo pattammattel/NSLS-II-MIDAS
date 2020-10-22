@@ -1,6 +1,6 @@
 # MIDAS (Multimodal Image Data Analysis Software)
 
-__author__ :Ajith Pattammattel
+__Author__ :Ajith Pattammattel
 
 A software suite to load and analysis imaging and spectrosocpy data collected at NSLS-II, Brookhaven National Laboratory
 
