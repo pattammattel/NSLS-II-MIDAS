@@ -3,15 +3,7 @@
 # Author: Ajith Pattammattel
 # Date:06-23-2020
 
-import numpy as np
-import matplotlib.pyplot as plt
-import tifffile as tf
-import os
 import logging
-import datetime
-import pyqtgraph as pg
-
-
 from subprocess import Popen, CREATE_NEW_CONSOLE
 from PyQt5 import QtWidgets, uic
 from PyQt5.QtWidgets import QMessageBox, QFileDialog
@@ -290,7 +282,7 @@ class Ui(QtWidgets.QMainWindow):
 
         decon_images,X_cluster, decon_spectra = cluster_stack(self.updated_stack, method=method_,
                                                    n_clusters_=self.sb_ncluster.value(),
-                                                   decomposed=self.cb_decomposed.isChecked(),
+                                                   decomposed=False,
                                                    decompose_method=self.cb_comp_method.currentText(),
                                                    decompose_comp = self.sb_ncomp.value())
 
@@ -319,7 +311,7 @@ class Ui(QtWidgets.QMainWindow):
 
         if self.cb_autosave.isChecked():
             dest = str(self.le_wd.text())
-            tf.imsave(dest+'/_XANES_Map.tiff', np.float32(xanes_maps))
+            tf.imsave(dest+'/XANES_Map.tiff', np.float32(xanes_maps))
 
         self._new_window5 = ComponentViewer(xanes_maps.T, ff, ff)
         self._new_window5.show()
