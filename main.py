@@ -4,7 +4,7 @@
 # Date:06-23-2020
 
 import logging
-from subprocess import Popen, CREATE_NEW_CONSOLE
+from subprocess import Popen
 from PyQt5 import QtWidgets, uic
 from PyQt5.QtWidgets import QMessageBox, QFileDialog
 from xrf_xanes_3ID_gui import xrf_3ID
