@@ -309,6 +309,26 @@ font: 12pt &quot;MS Shell Dlg 2&quot;;</string>
                       <string>FastICA</string>
                      </property>
                     </item>
+                    <item>
+                     <property name="text">
+                      <string>IncrementalPCA</string>
+                     </property>
+                    </item>
+                    <item>
+                     <property name="text">
+                      <string>TruncatedSVD</string>
+                     </property>
+                    </item>
+                    <item>
+                     <property name="text">
+                      <string>FactorAnalysis</string>
+                     </property>
+                    </item>
+                    <item>
+                     <property name="text">
+                      <string>DictionaryLearning</string>
+                     </property>
+                    </item>
                    </widget>
                   </item>
                   <item>
@@ -419,6 +439,33 @@ font: 12pt &quot;MS Shell Dlg 2&quot;;</string>
                       <string>MiniBatchKMeans</string>
                      </property>
                     </item>
+                    <item>
+                     <property name="text">
+                      <string>MeanShift</string>
+                     </property>
+                    </item>
+                    <item>
+                     <property name="text">
+                      <string>Spectral Clustering</string>
+                     </property>
+                    </item>
+                    <item>
+                     <property name="text">
+                      <string>Correlation-Kmeans</string>
+                     </property>
+                    </item>
+                    <item>
+                     <property name="text">
+                      <string>Affinity Propagation</string>
+                     </property>
+                    </item>
+                   </widget>
+                  </item>
+                  <item>
+                   <widget class="QCheckBox" name="cb_decomposed">
+                    <property name="text">
+                     <string>Decomposed</string>
+                    </property>
                    </widget>
                   </item>
                   <item>
@@ -574,6 +621,19 @@ font: 12pt &quot;MS Shell Dlg 2&quot;;</string>
                    <layout class="QGridLayout" name="gridLayout_7">
                     <item row="0" column="0">
                      <layout class="QGridLayout" name="gridLayout_4">
+                      <item row="0" column="0">
+                       <widget class="QPushButton" name="pb_plot_xanes_refs">
+                        <property name="sizePolicy">
+                         <sizepolicy hsizetype="Preferred" vsizetype="Preferred">
+                          <horstretch>0</horstretch>
+                          <verstretch>0</verstretch>
+                         </sizepolicy>
+                        </property>
+                        <property name="text">
+                         <string>Plot References</string>
+                        </property>
+                       </widget>
+                      </item>
                       <item row="0" column="1">
                        <widget class="QPushButton" name="pb_plot_sum_xanes">
                         <property name="sizePolicy">
@@ -587,16 +647,10 @@ font: 12pt &quot;MS Shell Dlg 2&quot;;</string>
                         </property>
                        </widget>
                       </item>
-                      <item row="0" column="0">
-                       <widget class="QPushButton" name="pb_plot_xanes_refs">
-                        <property name="sizePolicy">
-                         <sizepolicy hsizetype="Preferred" vsizetype="Preferred">
-                          <horstretch>0</horstretch>
-                          <verstretch>0</verstretch>
-                         </sizepolicy>
-                        </property>
+                      <item row="0" column="2">
+                       <widget class="QCheckBox" name="chb_ref_der">
                         <property name="text">
-                         <string>Plot References</string>
+                         <string>Derivative</string>
                         </property>
                        </widget>
                       </item>
@@ -729,19 +783,6 @@ font: 12pt &quot;MS Shell Dlg 2&quot;;</string>
                 </item>
                </layout>
               </item>
-              <item row="1" column="0">
-               <spacer name="verticalSpacer">
-                <property name="orientation">
-                 <enum>Qt::Vertical</enum>
-                </property>
-                <property name="sizeHint" stdset="0">
-                 <size>
-                  <width>20</width>
-                  <height>40</height>
-                 </size>
-                </property>
-               </spacer>
-              </item>
              </layout>
             </widget>
            </item>
@@ -855,7 +896,7 @@ font: 12pt &quot;MS Shell Dlg 2&quot;;</string>
                  </widget>
                 </item>
                 <item row="0" column="1">
-                 <widget class="QSpinBox" name="sb_xrf_x_start">
+                 <widget class="QSpinBox" name="sb_zrange1">
                   <property name="minimum">
                    <number>0</number>
                   </property>
@@ -881,7 +922,7 @@ font: 12pt &quot;MS Shell Dlg 2&quot;;</string>
                  </widget>
                 </item>
                 <item row="0" column="3">
-                 <widget class="QSpinBox" name="sb_xrf_x_end">
+                 <widget class="QSpinBox" name="sb_zrange2">
                   <property name="minimum">
                    <number>1</number>
                   </property>

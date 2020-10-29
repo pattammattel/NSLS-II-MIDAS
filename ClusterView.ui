@@ -64,19 +64,6 @@
       <item row="1" column="0">
        <layout class="QGridLayout" name="gridLayout_9">
         <item row="0" column="0">
-         <spacer name="horizontalSpacer_2">
-          <property name="orientation">
-           <enum>Qt::Horizontal</enum>
-          </property>
-          <property name="sizeHint" stdset="0">
-           <size>
-            <width>40</width>
-            <height>20</height>
-           </size>
-          </property>
-         </spacer>
-        </item>
-        <item row="0" column="1">
          <layout class="QGridLayout" name="gridLayout_8">
           <item row="0" column="0">
            <layout class="QGridLayout" name="gridLayout_2">
@@ -124,6 +111,19 @@
               </property>
              </widget>
             </item>
+            <item row="0" column="2">
+             <spacer name="horizontalSpacer">
+              <property name="orientation">
+               <enum>Qt::Horizontal</enum>
+              </property>
+              <property name="sizeHint" stdset="0">
+               <size>
+                <width>40</width>
+                <height>20</height>
+               </size>
+              </property>
+             </spacer>
+            </item>
            </layout>
           </item>
           <item row="1" column="0">
@@ -142,24 +142,15 @@
              </widget>
             </item>
             <item row="1" column="0">
-             <widget class="PlotWidget" name="component_view"/>
+             <widget class="PlotWidget" name="component_view">
+              <property name="sizeAdjustPolicy">
+               <enum>QAbstractScrollArea::AdjustToContents</enum>
+              </property>
+             </widget>
             </item>
            </layout>
           </item>
          </layout>
-        </item>
-        <item row="0" column="2">
-         <spacer name="horizontalSpacer_3">
-          <property name="orientation">
-           <enum>Qt::Horizontal</enum>
-          </property>
-          <property name="sizeHint" stdset="0">
-           <size>
-            <width>40</width>
-            <height>20</height>
-           </size>
-          </property>
-         </spacer>
         </item>
        </layout>
       </item>

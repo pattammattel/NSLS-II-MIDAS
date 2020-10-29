@@ -2,17 +2,23 @@
 import sys, os, time, subprocess
 import matplotlib.pyplot as plt
 import numpy as np
+import logging
+logger = logging.getLogger()
 
 from PyQt5 import QtWidgets, uic
 from PyQt5.QtWidgets import QMessageBox, QFileDialog
 
 try:
     from pyxrf.api import *
-except:
-    # raise ImportError('not connected to beamline or not in right conda env')
+except ImportError:
+    logger.warning ('Not connected to a beamline or not in a correct conda env')
     pass
 
-from epics import caget
+try:
+    from epics import caget
+except ImportError:
+    logger.warning ('Not connected to a beamline environemnt: Live data conversion is not available')
+    pass
 
 
 def hxn_auto_loader(wd, param_file_name, scaler_name):

@@ -10,13 +10,13 @@ import h5py
 from scipy.signal import savgol_filter
 
 
-def get_xrf_data(x_min, x_max, h='h5file'):
+def get_xrf_data( h='h5file'):
     f = h5py.File(h, 'r')
     try:
-        xrf_stack = f['xrfmap/detsum/counts'][:, :, x_min:x_max]
+        xrf_stack = f['xrfmap/detsum/counts'][:,:,:]
 
     except:
-        xrf_stack = f['xrmmap/mcasum/counts'][:, :, x_min:x_max]
+        xrf_stack = f['xrmmap/mcasum/counts'][:,:,:]
 
     try:
         mono_e = int(f['xrfmap/scan_metadata'].attrs['instrument_mono_incident_energy'] * 1000)
@@ -24,11 +24,10 @@ def get_xrf_data(x_min, x_max, h='h5file'):
     except:
         mono_e = 12000
 
-    return xrf_stack, mono_e
+    return remove_nan_inf(xrf_stack), mono_e
 
 
-def remove_nan_inf(image_array):
-    im = image_array.copy()
+def remove_nan_inf(im):
     im[im < 0] = 0
     im[np.isnan(im)] = 0
     im[np.isinf(im)] = 0
@@ -86,8 +85,8 @@ def normalize(image_array, norm_point=-1):
 
 
 def remove_edges(image_array):
-    z, x, y = np.shape(image_array)
-    return image_array[:, 1:x - 1, 1:y - 1]
+    #z, x, y = np.shape(image_array)
+    return image_array[:, 1:- 1, 1:- 1]
 
 
 def background_value(image_array):
@@ -232,7 +231,8 @@ def denoise_with_decomposition(img_stack, method_='PCA', n_components=4):
     img_ = np.reshape(new_image, (x * y, z))
 
     methods_dict = {'PCA': sd.PCA, 'IncrementalPCA': sd.IncrementalPCA,
-                    'NMF': sd.NMF, 'FastICA': sd.FastICA}
+                    'NMF': sd.NMF, 'FastICA': sd.FastICA, 'DictionaryLearning': sd.DictionaryLearning,
+                    'FactorAnalysis': sd.FactorAnalysis, 'TruncatedSVD': sd.TruncatedSVD}
 
     decomposed = methods_dict[method_](n_components=n_components)
 
@@ -252,7 +252,9 @@ def denoise_with_decomposition(img_stack, method_='PCA', n_components=4):
 
 def cluster_stack(im_array, method='KMeans', n_clusters_=4, decomposed=False, decompose_method='PCA',
                   decompose_comp=2):
-    methods = {'MiniBatchKMeans': sc.MiniBatchKMeans, 'KMeans': sc.KMeans}
+    methods = {'MiniBatchKMeans': sc.MiniBatchKMeans, 'KMeans': sc.KMeans,
+               'MeanShift': sc.MeanShift, 'Spectral Clustering': sc.SpectralClustering,
+               'Affinity Propagation': sc.AffinityPropagation}
 
     if decomposed:
         im_array = denoise_with_decomposition(im_array, method_=decompose_method,
@@ -322,21 +324,27 @@ def decompose_stack(im_stack, decompose_method='PCA', n_components_=3):
     x, y, z = np.shape(new_image)
     img_ = np.reshape(new_image, (x * y, z))
     methods_dict = {'PCA': sd.PCA, 'IncrementalPCA': sd.IncrementalPCA,
-                    'NMF': sd.NMF, 'FastICA': sd.FastICA}
+                    'NMF': sd.NMF, 'FastICA': sd.FastICA, 'DictionaryLearning': sd.DictionaryLearning,
+                    'FactorAnalysis': sd.FactorAnalysis, 'TruncatedSVD': sd.TruncatedSVD}
 
     _mdl = methods_dict[decompose_method](n_components=n_components_)
 
     ims = (_mdl.fit_transform(img_).reshape(x, y, n_components_)).transpose(2, 1, 0)
     spcs = _mdl.components_.transpose()
     decon_spetra = np.zeros((z, n_components_))
+    decom_map = np.zeros((ims.shape))
 
     for i in range(n_components_):
-        f = ims[i]
+        f = ims.copy()[i]
         f[f < 0] = 0
         spec_i = ((new_image.T * f).sum(1)).sum(1)
         decon_spetra[:, i] = spec_i
 
-    return np.float32(ims), spcs, decon_spetra
+        f[f>0] = i+1
+        decom_map[i] = f
+    decom_map = decom_map.sum(0)
+
+    return np.float32(ims), spcs, decon_spetra,decom_map
 
 
 def plot_xanes_refs(f='file'):
@@ -385,7 +393,7 @@ def xanes_fitting(im_stack, e_list, refs, method='NNLS'):
         x_inverse = np.linalg.pinv(refs)
         map = np.dot(x_inverse, M.T).T.reshape(new_image.shape[:-1] + (refs.shape[-1],))
 
-    return map, refs
+    return map
 
 
 # TODO make xanes plots interactive
