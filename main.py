@@ -2,7 +2,7 @@
 
 # Author: Ajith Pattammattel
 # Date:06-23-2020
-
+#conda env at HXN: nsls2-analysis-2020-2.0rc7-1-clone
 import numpy as np
 import matplotlib.pyplot as plt
 import tifffile as tf
