@@ -1,4 +1,4 @@
-# conda activate analysis-2019-3.0-hxn-clone2
+# nsls2-analysis-2020-2.0rc7-1-clone
 import sys, os, time, subprocess
 import matplotlib.pyplot as plt
 import numpy as np
