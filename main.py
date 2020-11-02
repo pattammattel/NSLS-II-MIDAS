@@ -15,7 +15,6 @@ import pyqtgraph as pg
 from subprocess import Popen
 from PyQt5 import QtWidgets, uic
 from PyQt5.QtWidgets import QMessageBox, QFileDialog
-#from xrf_xanes_3ID_gui import xrf_3ID
 from StackCalcs import *
 from StackPlot import *
 
@@ -66,11 +65,6 @@ class Ui(QtWidgets.QMainWindow):
         self.pb_calc_cluster.clicked.connect(self.clustering_)
         self.pb_xanes_fit.clicked.connect(self.fast_xanes_fitting)
         self.show()
-
-    def open_db_tools_3id(self):
-        self._new_window = xrf_3ID()
-        self._new_window.show()
-        logger.info('opening new working window for HXN-3ID')
 
     def select_wd(self):
         folder_path = QFileDialog().getExistingDirectory(self, "Select Folder")
