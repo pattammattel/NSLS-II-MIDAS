@@ -1,0 +1,13 @@
+PyQt5
+numpy
+pandas
+scipy
+sklearn
+h5py
+pyqtgraph
+matplotlib
+tifffile
+subprocess
+os
+sys
+
