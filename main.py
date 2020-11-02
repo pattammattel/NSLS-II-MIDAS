@@ -15,7 +15,7 @@ import pyqtgraph as pg
 from subprocess import Popen
 from PyQt5 import QtWidgets, uic
 from PyQt5.QtWidgets import QMessageBox, QFileDialog
-from xrf_xanes_3ID_gui import xrf_3ID
+#from xrf_xanes_3ID_gui import xrf_3ID
 from StackCalcs import *
 from StackPlot import *
 
@@ -39,7 +39,7 @@ class Ui(QtWidgets.QMainWindow):
         self.actionOpen_Mantis.triggered.connect(self.open_mantis)
         self.actionOpen_Athena.triggered.connect(self.open_athena)
 
-        self.actionOpen_HXN_DB.triggered.connect(self.open_db_tools_3id)
+        #self.actionOpen_HXN_DB.triggered.connect(self.open_db_tools_3id)
 
         self.cb_log.stateChanged.connect(self.view_stack)
         self.cb_remove_edges.stateChanged.connect(self.view_stack)
