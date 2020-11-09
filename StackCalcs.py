@@ -62,13 +62,6 @@ def smoothen(image_array, w_size=5):
     return remove_nan_inf(norm_stack)
 
 
-def replace_nan_nearest(image):
-    ind = np.where(~np.isnan(image))[0]
-    first, last = ind[0], ind[-1]
-    image[:first] = image[first]
-    image[last + 1:] = image[last]
-
-
 def normalize(image_array, norm_point=-1):
     a, b, c = np.shape(image_array)
     image_array = remove_nan_inf(image_array)
@@ -97,18 +90,6 @@ def background_value(image_array):
     v = np.gradient(img_v)
     bg = np.min([img_h[h == h.max()], img_v[v == v.max()]])
     return bg
-
-
-def clean_stack(img_stack, bg_percentage=30):
-    img_stack = remove_nan_inf(img_stack)
-    a, b, c = np.shape(img_stack)
-    ref_image = img_stack[-1].flatten()
-    bg_ratio = int((b * c) * 0.01 * bg_percentage)
-    bg_ = np.max(sorted(ref_image)[0:bg_ratio])
-    bg = np.where(img_stack.mean(0) > bg_, img_stack.mean(0), 0)
-    mask = np.where(bg < bg_, bg, 1)
-    bged_img_stack = img_stack * mask
-    return remove_nan_inf(bged_img_stack)
 
 
 def background_subtraction(img_stack, bg_percentage=10):
@@ -147,27 +128,6 @@ def background1(img_stack):
     bg = np.min([img_h[h == h.max()], img_v[v == v.max()]])
     return bg
 
-
-def clean_stack(img_stack, auto_bg=False, bg_percentage=5):
-    img_stack = remove_hot_pixels(img_stack)
-    a, b, c = np.shape(img_stack)
-
-    if auto_bg == True:
-        bg_ = background1(img_stack)
-
-    else:
-        ref_image = np.reshape(img_stack[-1], (b * c))
-        bg_ratio = int((b * c) * 0.01 * bg_percentage)
-        bg_ = np.max(sorted(ref_image)[0:bg_ratio])
-
-    bg = np.where(img_stack.sum(0) > bg_, img_stack.sum(0), 0)
-    bg2 = np.where(bg < bg_, bg, 1)
-
-    bged_img_stack = img_stack * bg2
-
-    return bged_img_stack
-
-
 def get_sum_spectra(image_array):
     spec = np.sum(np.sum(image_array, axis=1), axis=1)
     return spec
@@ -199,10 +159,31 @@ def neg_log(image_array):
     return remove_nan_inf(absorb)
 
 
-def classify(img_stack, bg_percentage=5, correlation='Kendall'):
-    image_stack = img_stack.transpose(2, 1, 0)
+def clean_stack(img_stack, auto_bg=False, bg_percentage=5):
+    img_stack = remove_hot_pixels(img_stack)
     a, b, c = np.shape(img_stack)
-    img_stack_ = clean_stack(img_stack, bg_percentage)
+
+    if auto_bg == True:
+        bg_ = background1(img_stack)
+
+    else:
+        sum_spec = (img_stack.sum(1)).sum(1)
+        ref_stk_num = np.where(sum_spec == sum_spec.max())[-1]
+
+        ref_image = np.reshape(img_stack[ref_stk_num], (b * c))
+        bg_ratio = int((b * c) * 0.01 * bg_percentage)
+        bg_ = np.max(sorted(ref_image)[0:bg_ratio])
+
+    bg = np.where(img_stack[ref_stk_num] > bg_, img_stack[ref_stk_num], 0)
+    bg2 = np.where(bg < bg_, bg, 1)
+
+    bged_img_stack = img_stack * bg2
+
+    return bged_img_stack
+
+def classify(img_stack, correlation='Pearson'):
+    img_stack_ = img_stack
+    a, b, c = np.shape(img_stack_)
     norm_img_stack = normalize(img_stack_)
     f = np.reshape(norm_img_stack, (a, (b * c)))
 
@@ -218,60 +199,43 @@ def classify(img_stack, bg_percentage=5, correlation='Kendall'):
         corr[s] = r
 
     cluster_image = np.reshape(corr, (b, c))
-    # cluster_image[np.isnan(cluster_image)] = 0
-    # cluster_image[np.isinf(cluster_image)] = 0
-    plt.figure()
-    plt.imshow(cluster_image ** 2)
-    return (cluster_image ** 2), img_stack_
+    return (cluster_image ** 3), img_stack_
 
+def correlation_kmeans(img_stack,n_clusters, correlation = 'Pearson'):
+    img, bg_image = classify(img_stack, correlation)
+    img[np.isnan(img)] = -99999
+    X = img.reshape((-1,1))
+    k_means = sc.KMeans(n_clusters)
+    k_means.fit(X)
 
-def denoise_with_decomposition(img_stack, method_='PCA', n_components=4):
-    new_image = img_stack.transpose(2, 1, 0)
-    x, y, z = np.shape(new_image)
-    img_ = np.reshape(new_image, (x * y, z))
+    X_cluster = k_means.labels_
+    X_cluster = X_cluster.reshape(img.shape)+1
 
-    methods_dict = {'PCA': sd.PCA, 'IncrementalPCA': sd.IncrementalPCA,
-                    'NMF': sd.NMF, 'FastICA': sd.FastICA, 'DictionaryLearning': sd.DictionaryLearning,
-                    'FactorAnalysis': sd.FactorAnalysis, 'TruncatedSVD': sd.TruncatedSVD}
-
-    decomposed = methods_dict[method_](n_components=n_components)
-
-    ims = (decomposed.fit_transform(img_).reshape(x, y, n_components)).transpose(2, 1, 0)
-    ims[ims < 0] = 0
-    ims[ims > 0] = 1
-    mask = ims.sum(0)
-    mask[mask > 1] = 1
-    # mask = uniform_filter(mask)
-    filtered = img_stack * mask
-    # plt.figure()
-    # plt.imshow(filtered.sum(0))
-    # plt.title('background removed')
-    # plt.show()
-    return remove_nan_inf(filtered)
-
+    return X_cluster
 
 def cluster_stack(im_array, method='KMeans', n_clusters_=4, decomposed=False, decompose_method='PCA',
                   decompose_comp=2):
-    methods = {'MiniBatchKMeans': sc.MiniBatchKMeans, 'KMeans': sc.KMeans,
-               'MeanShift': sc.MeanShift, 'Spectral Clustering': sc.SpectralClustering,
-               'Affinity Propagation': sc.AffinityPropagation}
-
-    if decomposed:
-        im_array = denoise_with_decomposition(im_array, method_=decompose_method,
-                                              n_components=decompose_comp)
-
     a, b, c = im_array.shape
-    flat_array = np.reshape(im_array, (a, (b * c)))
-    init_cluster = methods[method](n_clusters=n_clusters_)
-    init_cluster.fit(np.transpose(flat_array))
-    X_cluster = init_cluster.labels_.reshape(b, c) + 1
 
-    try:
-        spcs = init_cluster.cluster_centers_
-        spcs = np.transpose(spcs)
+    if method == 'Correlation-Kmeans':
 
-    except AttributeError:
-        pass
+        X_cluster = correlation_kmeans(im_array,n_clusters_, correlation = 'Pearson')
+
+    else:
+
+        methods = {'MiniBatchKMeans': sc.MiniBatchKMeans, 'KMeans': sc.KMeans,
+                   'MeanShift': sc.MeanShift, 'Spectral Clustering': sc.SpectralClustering,
+                   'Affinity Propagation': sc.AffinityPropagation}
+
+        if decomposed:
+            im_array = denoise_with_decomposition(im_array, method_=decompose_method,
+                                                  n_components=decompose_comp)
+
+
+        flat_array = np.reshape(im_array, (a, (b * c)))
+        init_cluster = methods[method](n_clusters=n_clusters_)
+        init_cluster.fit(np.transpose(flat_array))
+        X_cluster = init_cluster.labels_.reshape(b, c) + 1
 
     decon_spectra = np.zeros((a, n_clusters_))
     decon_images = np.zeros((n_clusters_, b, c))
@@ -347,14 +311,39 @@ def decompose_stack(im_stack, decompose_method='PCA', n_components_=3):
     return np.float32(ims), spcs, decon_spetra,decom_map
 
 
-def plot_xanes_refs(f='file'):
+def denoise_with_decomposition(img_stack, method_='PCA', n_components=4):
+    new_image = img_stack.transpose(2, 1, 0)
+    x, y, z = np.shape(new_image)
+    img_ = np.reshape(new_image, (x * y, z))
+
+    methods_dict = {'PCA': sd.PCA, 'IncrementalPCA': sd.IncrementalPCA,
+                    'NMF': sd.NMF, 'FastICA': sd.FastICA, 'DictionaryLearning': sd.DictionaryLearning,
+                    'FactorAnalysis': sd.FactorAnalysis, 'TruncatedSVD': sd.TruncatedSVD}
+
+    decomposed = methods_dict[method_](n_components=n_components)
+
+    ims = (decomposed.fit_transform(img_).reshape(x, y, n_components)).transpose(2, 1, 0)
+    ims[ims < 0] = 0
+    ims[ims > 0] = 1
+    mask = ims.sum(0)
+    mask[mask > 1] = 1
+    # mask = uniform_filter(mask)
+    filtered = img_stack * mask
+    # plt.figure()
+    # plt.imshow(filtered.sum(0))
+    # plt.title('background removed')
+    # plt.show()
+    return remove_nan_inf(filtered)
+
+
+def plot_xanes_refs(ref):
     plt.figure()
-    ref = np.loadtxt(f)
     e = ref[:, 0]
     for i in range(min(ref.shape)):
         if i > 0:
             plt.plot(e, ref[:, i])
-
+    plt.title("Reference Standards")
+    plt.xlabel("Energy")
     plt.show()
 
 

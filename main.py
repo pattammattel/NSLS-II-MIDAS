@@ -2,43 +2,40 @@
 
 # Author: Ajith Pattammattel
 # Date:06-23-2020
-#conda env at HXN: nsls2-analysis-2020-2.0rc7-1-clone
-import numpy as np
-import matplotlib.pyplot as plt
-import tifffile as tf
-import os
-import logging
-import datetime
-import pyqtgraph as pg
 
+import logging
+import webbrowser
 
 from subprocess import Popen
 from PyQt5 import QtWidgets, uic
 from PyQt5.QtWidgets import QMessageBox, QFileDialog
-from StackCalcs import *
+from xrf_xanes_3ID_gui import xrf_3ID
 from StackPlot import *
 
 logger = logging.getLogger()
 
 
 class Ui(QtWidgets.QMainWindow):
-    def __init__(self, im_stack=None):
+    def __init__(self, im_stack=None, energy=None, refs = None):
         super(Ui, self).__init__()
-        uic.loadUi('mainwindow_admin_copy.ui', self)
+        uic.loadUi('mainwindow_admin.ui', self)
         self.im_stack = im_stack
         self.updated_stack = self.im_stack
+        self.energy = energy
+        self.refs = refs
 
         self.actionOpen_Image_Data.triggered.connect(self.browse_file)
         self.actionSave_as.triggered.connect(self.save_stack)
-        #self.actionExit.triggered.connect(sys.exit(app.exec_()))
+        self.actionExit.triggered.connect(self.close)
 
         self.actionOpen_PyXRF.triggered.connect(self.open_pyxrf)
         self.actionOpen_Image_J.triggered.connect(self.open_imagej)
         self.actionOpen_TomViz.triggered.connect(self.open_tomviz)
         self.actionOpen_Mantis.triggered.connect(self.open_mantis)
         self.actionOpen_Athena.triggered.connect(self.open_athena)
+        self.actionOpen_in_GitHub.triggered.connect(self.open_github_link)
 
-        #self.actionOpen_HXN_DB.triggered.connect(self.open_db_tools_3id)
+        self.actionOpen_HXN_DB.triggered.connect(self.open_db_tools_3id)
 
         self.cb_log.stateChanged.connect(self.view_stack)
         self.cb_remove_edges.stateChanged.connect(self.view_stack)
@@ -50,7 +47,7 @@ class Ui(QtWidgets.QMainWindow):
         self.sb_smooth_size.valueChanged.connect(self.view_stack)
         self.sb_tolerence.valueChanged.connect(self.view_stack)
         self.dsb_bg_fraction.valueChanged.connect(self.view_stack)
-        self.pb_reset_img.clicked.connect(self.reset_stack)
+        self.pb_reset_img.clicked.connect(self.reset_and_load_stack)
         self.pb_crop.clicked.connect(self.crop_to_dim)
         self.pb_crop.clicked.connect(self.view_stack)
         self.pb_ref_xanes.clicked.connect(self.select_ref_file)
@@ -65,6 +62,14 @@ class Ui(QtWidgets.QMainWindow):
         self.pb_calc_cluster.clicked.connect(self.clustering_)
         self.pb_xanes_fit.clicked.connect(self.fast_xanes_fitting)
         self.show()
+
+    def open_github_link(self):
+        webbrowser.open('https://github.com/pattammattel/NSLS-II-MIDAS')
+
+    def open_db_tools_3id(self):
+        self._new_window = xrf_3ID()
+        self._new_window.show()
+        logger.info('opening new working window for HXN-3ID')
 
     def select_wd(self):
         folder_path = QFileDialog().getExistingDirectory(self, "Select Folder")
@@ -132,7 +137,10 @@ class Ui(QtWidgets.QMainWindow):
     def browse_file(self):
         filename = QFileDialog().getOpenFileName(self, "Select image data", '', 'image file(*.hdf *.h5 *tiff *tif )')
         self.file_name = (str(filename[0]))
-        self.load_stack()
+        try:
+            self.reset_and_load_stack()
+        except:
+            pass
 
     def load_stack(self):
         logger.info('Loading.. please wait...')
@@ -146,41 +154,40 @@ class Ui(QtWidgets.QMainWindow):
         elif self.file_name.endswith('.tiff') or self.file_name.endswith('.tif'):
             stack_ = tf.imread(self.file_name).transpose(1, 2, 0)
             self.sb_zrange1.setValue(0)
+            self.sb_zrange2.setMaximum(10000)
             self.sb_zrange2.setValue(stack_.shape[-1])
 
-        logger.info(f' loaded stack with {np.shape(stack_)} from the file')
-        self.im_stack = stack_.T
-        self.init_dimZ = self.im_stack.shape[0]
-        self.init_dimX = self.im_stack.shape[1]
-        self.init_dimY = self.im_stack.shape[2]
-        self.sb_xrange2.setMaximum(5000)
-        self.sb_yrange2.setMaximum(5000)
-        self.sb_xrange2.setValue(self.init_dimX)
-        self.sb_yrange2.setValue(self.init_dimY)
-        logger.info(f' Transposed to shape: {np.shape(self.im_stack)}')
+        else:
+            logger.error('Unknown data format')
 
         try:
 
+            logger.info(f' loaded stack with {np.shape(stack_)} from the file')
+            self.im_stack = stack_.T
+            self.init_dimZ = self.im_stack.shape[0]
+            self.init_dimX = self.im_stack.shape[1]
+            self.init_dimY = self.im_stack.shape[2]
+            self.sb_xrange2.setMaximum(5000)
+            self.sb_yrange2.setMaximum(5000)
+            self.sb_xrange2.setValue(self.init_dimX)
+            self.sb_yrange2.setValue(self.init_dimY)
+            logger.info(f' Transposed to shape: {np.shape(self.im_stack)}')
+
+        except UnboundLocalError:
+            logger.error('No file selected')
+            pass
+
+        try:
             self.view_stack()
             self.update_stack_info()
 
-        except NameError:
+        except:
             logger.error('No image file loaded')
             pass
 
         logger.info(f'completed image shape {np.shape(self.im_stack)}')
 
-
-    def update_stack_info(self):
-        z, x, y = np.shape(self.updated_stack)
-        self.sb_zrange2.setMaximum(z+self.sb_zrange1.value())
-        self.sb_xrange2.setValue(x)
-        self.sb_xrange2.setMaximum(x)
-        self.sb_yrange2.setValue(y)
-        self.sb_yrange2.setMaximum(y)
-        logger.info('Stack info has been updated')
-
-    def reset_stack(self):
+    def reset_and_load_stack(self):
         self.cb_log.setChecked(False)
         self.cb_remove_edges.setChecked(False)
         self.cb_norm.setChecked(False)
@@ -192,13 +199,21 @@ class Ui(QtWidgets.QMainWindow):
         self.sb_yrange1.setValue(0)
         self.load_stack()
 
+    def update_stack_info(self):
+        z, x, y = np.shape(self.updated_stack)
+        self.sb_zrange2.setMaximum(z+self.sb_zrange1.value())
+        self.sb_xrange2.setValue(x)
+        self.sb_xrange2.setMaximum(x)
+        self.sb_yrange2.setValue(y)
+        self.sb_yrange2.setMaximum(y)
+        logger.info('Stack info has been updated')
+
     def crop_to_dim(self):
         x1, x2 = self.sb_xrange1.value(),self.sb_xrange2.value()
         y1, y2 = self.sb_yrange1.value(), self.sb_yrange2.value()
         z1, z2 = self.sb_zrange1.value(), self.sb_zrange2.value()
 
         self.updated_stack = remove_nan_inf(self.im_stack[z1:z2, x1:x2, y1:y2])
-
 
     def update_stack(self):
 
@@ -255,11 +270,22 @@ class Ui(QtWidgets.QMainWindow):
         self.stack_width = int(self.dim1 * 0.05)
         self.image_view.setCurrentIndex(self.stack_center)
 
+        '''
         self.image_roi = pg.ROI(
             pos=(int(self.dim2 // 2), int(self.dim3 // 2)),
             size=(int(self.dim2 * 0.1), int(self.dim3 * 0.1)),
             scaleSnap=True, translateSnap=True, rotateSnap=True, removable=True
         )
+
+        '''
+        cn = int(self.dim2 // 2)
+        sz = np.max([int(self.dim2 * 0.15),int(self.dim3 * 0.15)])
+        self.image_roi = pg.PolyLineROI([[0,0], [0,sz], [sz,sz], [sz,0]],
+                                        pos =(int(self.dim2 // 2), int(self.dim3 // 2)), closed=True)
+
+
+        #self.image_roi.addScaleHandle([10, 1], [0, 0])
+        self.image_roi.addRotateHandle([sz//2, sz//2], [2, 2])
 
         self.image_view.addItem(self.image_roi)
         self.spec_roi = pg.LinearRegionItem(values=(self.stack_center - self.stack_width,
@@ -277,29 +303,21 @@ class Ui(QtWidgets.QMainWindow):
         self.sb_roi_spec_e.valueChanged.connect(self.set_spec_roi)
         # self.pb_play_stack.clicked.connect(self.play_stack)
 
+    def update_region(self):
+        region = self.image_roi.getArrayRegion(self.updated_stack,self.image_view.imageItem, axes=(1,2))
+        print(region.shape)
 
     def update_spectrum(self):
-        # Obtaining coordinates of ROI graphic in the image plot
-        self.image_coord_handles = self.image_roi.getState()
-        self.posimage = self.image_coord_handles['pos']
-        self.sizeimage = self.image_coord_handles['size']
 
-        posx = int(self.posimage[0])
-        sizex = int(self.sizeimage[0])
-        posy = int(self.posimage[1])
-        sizey = int(self.sizeimage[1])
-        xmin = posx
-        xmax = posx + sizex
-        ymin = posy
-        ymax = posy + sizey
-
-        self.le_roi.setText(str(xmin)+':' +str(xmax)+','+str(ymin)+':'+str(ymax,))
+        xdata = np.arange(self.sb_zrange1.value(), self.sb_zrange2.value(), 1)
+        #ydata = remove_nan_inf(get_sum_spectra(self.updated_stack[:, xmin:xmax,ymin:ymax]))
+        ydata = self.image_roi.getArrayRegion(self.updated_stack, self.image_view.imageItem, axes=(1, 2))
+        sizex, sizey = ydata.shape[1], ydata.shape[2]
+        posx, posy = self.image_roi.pos()
+        self.le_roi.setText(str(int(posx))+':' +str(int(posy)))
         self.le_roi_size.setText(str(sizex) +','+ str(sizey))
 
-        #print(self.updated_im_stack[:, xmax, ymax])
-        xdata = np.arange(0, self.dim1, 1)
-        ydata = remove_nan_inf(get_sum_spectra(self.updated_stack[:, xmin:xmax,ymin:ymax]))
-        self.spectrum_view.plot(xdata, ydata, clear=True)
+        self.spectrum_view.plot(xdata, get_sum_spectra(ydata), clear=True)
         self.spectrum_view.addItem(self.spec_roi)
 
     def update_image_roi(self):
@@ -314,10 +332,14 @@ class Ui(QtWidgets.QMainWindow):
         self.update_image_roi()
 
     def save_stack(self):
-        self.update_stack()
-        file_name = QFileDialog().getSaveFileName(self, "", '', 'image file(*tiff *tif )')
-        tf.imsave(str(file_name[0]), self.updated_stack.transpose(0,2,1))
-        logger.info(f'Updated Image Saved: {str(file_name[0])}')
+        try:
+            self.update_stack()
+            file_name = QFileDialog().getSaveFileName(self, "", '', 'image file(*tiff *tif )')
+            tf.imsave(str(file_name[0]), self.updated_stack.transpose(0,2,1))
+            logger.info(f'Updated Image Saved: {str(file_name[0])}')
+        except:
+            logger.error('No file to save')
+            pass
 
     def open_xrf_stack_imagej(self):
         tf.imsave(f'{self.le_wd.text()}/tmp_image.tiff', np.float32(self.updated_stack), imagej=True)
@@ -343,15 +365,6 @@ class Ui(QtWidgets.QMainWindow):
         ims, comp_spec, decon_spec, decomp_map = decompose_stack(self.updated_stack,
             decompose_method=method_ , n_components_=n_components)
 
-        '''
-        if self.cb_autosave.isChecked():
-            dest = '.'
-            tf.imsave(dest+'/'+ method_+'_components.tiff', np.float32(ims))
-            np.savetxt(dest+'/'+ method_+ '_eigen_spectra.txt', comp_spec)
-            np.savetxt(dest+'/'+ method_+'_deconv_spectra.txt', decon_spec)
-            
-        '''
-
         self._new_window3 = ComponentViewer(ims, comp_spec, decon_spec,decomp_map)
         self._new_window3.show()
 
@@ -367,7 +380,6 @@ class Ui(QtWidgets.QMainWindow):
             pass
             logger.error('Overflow Error, values are too long')
 
-
     def clustering_(self):
 
         logger.info('Process started..')
@@ -379,15 +391,6 @@ class Ui(QtWidgets.QMainWindow):
                                                    decomposed=False,
                                                    decompose_method=self.cb_comp_method.currentText(),
                                                    decompose_comp = self.sb_ncomp.value())
-        '''
-        if self.cb_autosave.isChecked():
-
-            dest = str(self.le_wd.text())
-            tf.imsave(dest+'/'+ method_+'_clusters.tiff', np.float32(decon_images))
-            tf.imsave(dest+'/'+ method_+ '_cluster_map.tiff', np.float32(X_cluster))
-            np.savetxt(dest+'/'+ method_+'_deconv_spectra.txt', decon_spectra)
-            
-        '''
 
         self._new_window4 = ClusterViewer(decon_images,X_cluster, decon_spectra)
         self._new_window4.show()
@@ -398,33 +401,43 @@ class Ui(QtWidgets.QMainWindow):
     # XANES files
 
     def select_ref_file(self):
-        file_name = QFileDialog().getOpenFileName(self, "Open file", '', 'text file (*.txt *.csv *.xlsx )')
-        self.xanes_ref = np.loadtxt(str(file_name[0]))
+        file_name = QFileDialog().getOpenFileName(self, "Open reference file", '', 'text file (*.txt *.nor)')
+        try:
+            self.refs = np.loadtxt(str(file_name[0]))
+            if bool(self.refs.max()):
+                self.change_color_on_load(self.pb_ref_xanes)
+                plot_xanes_refs(self.refs)
+
+        except OSError:
+            logger.error('No file selected')
+            pass
+
 
     def select_elist(self):
-        file_name = QFileDialog().getOpenFileName(self, "Open file", '', 'text file (*.txt *.csv *.xlsx )')
-        self.xanes_energy = np.loadtxt(str(file_name[0]))
+        file_name = QFileDialog().getOpenFileName(self, "Open energy list", '', 'text file (*.txt)')
+        try:
+            self.energy = np.loadtxt(str(file_name[0]))
+            if bool(self.energy.max()) == True:
+                self.change_color_on_load(self.pb_elist_xanes)
 
-    def plot_refs(self):
-        plot_xanes_refs(f=self.le_ref.text())
+        except OSError:
+            logger.error('No file selected')
+            pass
+
+    def change_color_on_load(self, button_name):
+        button_name.setStyleSheet("background-color : green")
 
     def fast_xanes_fitting(self):
 
         logger.info('Process started..')
 
-        e_list1 = self.xanes_energy
-        ref1 = self.xanes_ref
+        e_list1 = self.energy
+        ref1 = self.refs
         self.update_stack()
 
         xanes_maps = xanes_fitting(self.updated_stack, e_list1,ref1,
                                    method=self.cb_xanes_fitting_method.currentText())
         logger.info('Process complete')
-
-        '''
-        if self.cb_autosave.isChecked():
-            dest = str(self.le_wd.text())
-            tf.imsave(dest+'/_XANES_Map.tiff', np.float32(xanes_maps))
-        '''
 
         self._new_window5 = XANESViewer(xanes_maps.T, self.updated_stack, e_list1, ref1)
         self._new_window5.show()
