@@ -288,7 +288,7 @@ def decompose_stack(im_stack, decompose_method='PCA', n_components_=3):
     x, y, z = np.shape(new_image)
     img_ = np.reshape(new_image, (x * y, z))
     methods_dict = {'PCA': sd.PCA, 'IncrementalPCA': sd.IncrementalPCA,
-                    'NMF': sd.NMF, 'FastICA': sd.FastICA, 'DictionaryLearning': sd.DictionaryLearning,
+                    'NMF': sd.NMF, 'FastICA': sd.FastICA, 'DictionaryLearning': sd.MiniBatchDictionaryLearning,
                     'FactorAnalysis': sd.FactorAnalysis, 'TruncatedSVD': sd.TruncatedSVD}
 
     _mdl = methods_dict[decompose_method](n_components=n_components_)

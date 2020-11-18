@@ -290,6 +290,8 @@ class Ui(QtWidgets.QMainWindow):
         self.image_view.addItem(self.image_roi)
         self.spec_roi = pg.LinearRegionItem(values=(self.stack_center - self.stack_width,
                                                     self.stack_center + self.stack_width))
+        self.spec_roi_math = pg.LinearRegionItem(values=(self.stack_center//2 - self.stack_width,
+                                                    self.stack_center//2 + self.stack_width))
         self.spec_roi.setBounds([0, self.dim1])
         self.sb_roi_spec_s.setValue(self.stack_center - self.stack_width)
         self.sb_roi_spec_e.setValue(self.stack_center + self.stack_width)
@@ -298,9 +300,11 @@ class Ui(QtWidgets.QMainWindow):
 
         # connections
         self.spec_roi.sigRegionChanged.connect(self.update_image_roi)
+        #self.spec_roi.sigRegionChanged.connect(self.spec_roi_calc)
         self.image_roi.sigRegionChanged.connect(self.update_spectrum)
         self.sb_roi_spec_s.valueChanged.connect(self.set_spec_roi)
         self.sb_roi_spec_e.valueChanged.connect(self.set_spec_roi)
+        self.spec_roi_math.sigRegionChanged.connect(self.spec_roi_calc)
         # self.pb_play_stack.clicked.connect(self.play_stack)
 
     def update_region(self):
@@ -319,6 +323,7 @@ class Ui(QtWidgets.QMainWindow):
 
         self.spectrum_view.plot(xdata, get_sum_spectra(ydata), clear=True)
         self.spectrum_view.addItem(self.spec_roi)
+        self.spectrum_view.addItem(self.spec_roi_math)
 
     def update_image_roi(self):
         self.spec_lo, self.spec_hi = self.spec_roi.getRegion()
@@ -330,6 +335,13 @@ class Ui(QtWidgets.QMainWindow):
         self.spec_lo_, self.spec_hi_ = int(self.sb_roi_spec_s.value()), int(self.sb_roi_spec_e.value())
         self.spec_roi.setRegion((self.spec_lo_, self.spec_hi_))
         self.update_image_roi()
+
+    def spec_roi_calc(self):
+        self.spec_lo_m, self.spec_hi_m = self.spec_roi_math.getRegion()
+        img1 = self.updated_stack[int(self.spec_lo):int(self.spec_hi), :, :].mean(0)
+        img2 = self.updated_stack[int(self.spec_lo_m):int(self.spec_hi_m), :, :].mean(0)
+        self.image_view.setImage(remove_nan_inf(img1/img2))
+
 
     def save_stack(self):
         try:
