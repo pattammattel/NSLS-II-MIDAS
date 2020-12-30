@@ -3,17 +3,15 @@
 # Author: Ajith Pattammattel
 # Date:06-23-2020
 
-import logging
-import webbrowser
+import logging, sys, webbrowser
 
 from subprocess import Popen
-from PyQt5 import QtWidgets, uic
-from PyQt5.QtWidgets import QMessageBox, QFileDialog
-from xrf_xanes_3ID_gui import xrf_3ID
+from PyQt5 import QtWidgets, uic, QtCore
+from PyQt5.QtWidgets import QMessageBox, QFileDialog, QDesktopWidget, QApplication
+
 from StackPlot import *
-
+from StackCalcs import *
 logger = logging.getLogger()
-
 
 class Ui(QtWidgets.QMainWindow):
     def __init__(self, im_stack=None, energy=None, refs = None):
@@ -27,15 +25,8 @@ class Ui(QtWidgets.QMainWindow):
         self.actionOpen_Image_Data.triggered.connect(self.browse_file)
         self.actionSave_as.triggered.connect(self.save_stack)
         self.actionExit.triggered.connect(self.close)
-
-        self.actionOpen_PyXRF.triggered.connect(self.open_pyxrf)
-        self.actionOpen_Image_J.triggered.connect(self.open_imagej)
-        self.actionOpen_TomViz.triggered.connect(self.open_tomviz)
-        self.actionOpen_Mantis.triggered.connect(self.open_mantis)
-        self.actionOpen_Athena.triggered.connect(self.open_athena)
         self.actionOpen_in_GitHub.triggered.connect(self.open_github_link)
-
-        self.actionOpen_HXN_DB.triggered.connect(self.open_db_tools_3id)
+        self.actionLoad_Energy.triggered.connect(self.select_elist)
 
         self.cb_log.stateChanged.connect(self.view_stack)
         self.cb_remove_edges.stateChanged.connect(self.view_stack)
@@ -66,72 +57,6 @@ class Ui(QtWidgets.QMainWindow):
     def open_github_link(self):
         webbrowser.open('https://github.com/pattammattel/NSLS-II-MIDAS')
 
-    def open_db_tools_3id(self):
-        self._new_window = xrf_3ID()
-        self._new_window.show()
-        logger.info('opening new working window for HXN-3ID')
-
-    def select_wd(self):
-        folder_path = QFileDialog().getExistingDirectory(self, "Select Folder")
-        self.le_wd.setText(str(folder_path))
-        global dest
-        dest = self.le_wd.text()
-
-    def open_pyxrf(self):
-        logger.info('opening pyXRF GUI')
-        try:
-            Popen(['pyxrf'])
-
-        except ModuleNotFoundError:
-
-            logger.error('Not connected to the beamline account or not in pyxrf conda env')
-
-    def open_athena(self):
-        logger.info('opening ATHENA')
-        try:
-
-            athena_path = r'C:\Users\pattammattel\AppData\Roaming\DemeterPerl\perl\site\bin\dathena.bat'
-            Popen([athena_path])
-
-        except FileNotFoundError:
-
-            logger.error('Wrong dathena.bat path')
-
-    def open_imagej(self):
-        logger.info('opening ImgaeJ')
-        try:
-            imagej_path = r'C:\Users\pattammattel\Fiji.app\ImageJ-win64.exe'
-            Popen([imagej_path])
-
-        except FileNotFoundError:
-
-            logger.error('Wrong ImageJ.exe path')
-
-    def open_smak(self):
-        smak_path = r'C:\Program Files\smak\smak.exe'
-        Popen([smak_path])
-
-    def open_mantis(self):
-
-        logger.info('opening  Mantis')
-        try:
-            mantis_path = r'C:\Users\pattammattel\mantis-2.3.02.amd64.exe'
-            Popen([mantis_path])
-
-        except FileNotFoundError:
-            logger.error('Wrong Mantis.exe path')
-
-    def open_tomviz(self):
-
-        logger.info('opening TomViz')
-
-        try:
-            tomviz_path = r'C:\Program Files\tomviz\bin\tomviz.exe'
-            Popen([tomviz_path, self.le_tiff_file.text()])
-
-        except FileNotFoundError:
-            logger.error('Wrong tomviz.exe path')
-
     # XRF Loading
 
     def browse_file(self):
@@ -147,14 +72,14 @@ class Ui(QtWidgets.QMainWindow):
 
         if self.file_name.endswith('.h5'):
             stack_, mono_e = get_xrf_data(self.file_name)
-            self.sb_zrange2.setMaximum(10000)
+            self.sb_zrange2.setMaximum(100000)
             self.sb_zrange2.setValue(mono_e/10)
-            self.sb_zrange1.setValue(100)
+            self.sb_zrange1.setValue(0)
 
         elif self.file_name.endswith('.tiff') or self.file_name.endswith('.tif'):
             stack_ = tf.imread(self.file_name).transpose(1, 2, 0)
             self.sb_zrange1.setValue(0)
-            self.sb_zrange2.setMaximum(10000)
+            self.sb_zrange2.setMaximum(100000)
             self.sb_zrange2.setValue(stack_.shape[-1])
 
         else:
@@ -179,15 +104,17 @@ class Ui(QtWidgets.QMainWindow):
 
         try:
             self.view_stack()
+            logger.info("Stack displayed correctly")
             self.update_stack_info()
 
         except:
-            logger.error('No image file loaded')
+            logger.error("Trouble with stack display")
             pass
 
         logger.info(f'completed image shape {np.shape(self.im_stack)}')
 
     def reset_and_load_stack(self):
+        self.rb_math_roi_img.setChecked(False)
         self.cb_log.setChecked(False)
         self.cb_remove_edges.setChecked(False)
         self.cb_norm.setChecked(False)
@@ -209,18 +136,20 @@ class Ui(QtWidgets.QMainWindow):
         logger.info('Stack info has been updated')
 
     def crop_to_dim(self):
-        x1, x2 = self.sb_xrange1.value(),self.sb_xrange2.value()
-        y1, y2 = self.sb_yrange1.value(), self.sb_yrange2.value()
-        z1, z2 = self.sb_zrange1.value(), self.sb_zrange2.value()
+        self.x1, self.x2 = self.sb_xrange1.value(),self.sb_xrange2.value()
+        self.y1, self.y2 = self.sb_yrange1.value(), self.sb_yrange2.value()
+        self.z1, self.z2 = self.sb_zrange1.value(), self.sb_zrange2.value()
 
-        self.updated_stack = remove_nan_inf(self.im_stack[z1:z2, x1:x2, y1:y2])
+        self.updated_stack = remove_nan_inf(self.im_stack[self.z1:self.z2,
+                                            self.x1:self.x2, self.y1:self.y2])
 
     def update_stack(self):
 
         self.crop_to_dim()
 
         if self.cb_remove_outliers.isChecked():
-            self.updated_stack = remove_hot_pixels(self.updated_stack, NSigma=self.sb_tolerence.value())
+            self.updated_stack = remove_hot_pixels(self.updated_stack,
+                                                   NSigma=self.sb_tolerence.value())
             logger.info(f'Removing Outliers with NSigma {self.sb_tolerence.value()}')
 
         if self.cb_remove_edges.isChecked():
@@ -230,15 +159,16 @@ class Ui(QtWidgets.QMainWindow):
 
         if self.cb_remove_bg.isChecked():
             logger.info('Removing background')
-            self.updated_stack = clean_stack(self.updated_stack, auto_bg= self.cb_bg_auto.isChecked(),
-                                                         bg_percentage=self.dsb_bg_fraction.value())
+            self.updated_stack = clean_stack(self.updated_stack,
+                                             auto_bg= self.cb_bg_auto.isChecked(),
+                                             bg_percentage=self.dsb_bg_fraction.value())
 
         if self.cb_log.isChecked():
             self.updated_stack = remove_nan_inf(np.log(self.updated_stack))
             logger.info('Log Stack is in use')
 
         if self.cb_smooth.isChecked():
-            self.updated_stack = smoothen(self.updated_stack, w_size = self.sb_smooth_size.value() )
+            self.updated_stack = smoothen(self.updated_stack, w_size = self.sb_smooth_size.value())
             logger.info('Spectrum Smoothening Applied')
 
         if self.cb_norm.isChecked():
@@ -258,6 +188,7 @@ class Ui(QtWidgets.QMainWindow):
 
         try:
             self.image_view.removeItem(self.image_roi)
+            self.image_view.removeItem(self.image_roi_math)
         except:
             pass
 
@@ -266,81 +197,184 @@ class Ui(QtWidgets.QMainWindow):
         self.image_view.ui.menuBtn.hide()
         self.image_view.ui.roiBtn.hide()
         self.image_view.setPredefinedGradient('viridis')
-        self.stack_center = int(self.dim1 // 2)
-        self.stack_width = int(self.dim1 * 0.05)
-        self.image_view.setCurrentIndex(self.stack_center)
+        self.image_view.setCurrentIndex(self.dim1//2)
+        self.energy = np.arange(self.z2)*10
+        logger.info("Arbitary X-axis used in the plot for XANES")
+        self.stack_center = int(self.energy[len(self.energy)//2])
+        self.stack_width = int((self.energy.max()-self.energy.min()) * 0.05)
 
-        '''
-        self.image_roi = pg.ROI(
-            pos=(int(self.dim2 // 2), int(self.dim3 // 2)),
-            size=(int(self.dim2 * 0.1), int(self.dim3 * 0.1)),
-            scaleSnap=True, translateSnap=True, rotateSnap=True, removable=True
-        )
-
-        '''
-        cn = int(self.dim2 // 2)
-        sz = np.max([int(self.dim2 * 0.15),int(self.dim3 * 0.15)])
+        #ROI settings for image, used plyline roi with non rectangular shape
+        sz = np.max([int(self.dim2 * 0.1),int(self.dim3 * 0.1)]) #size of the roi set to be 10% of the image area
         self.image_roi = pg.PolyLineROI([[0,0], [0,sz], [sz,sz], [sz,0]],
-                                        pos =(int(self.dim2 // 2), int(self.dim3 // 2)), closed=True)
+                                        pos =(int(self.dim3 // 2), int(self.dim2 // 2)),
+                                        maxBounds = QtCore.QRect(0, 0, self.dim3, self.dim2),
+                                        closed=True)
+        logger.info("Image ROI Added")
 
+        # a second optional ROI for calculations follow
+        self.image_roi_math = pg.PolyLineROI([[0,0], [0,sz//2], [sz//2,sz//2], [sz//2,0]],
+                                        pos =(0, 0), pen = 'r', closed=True)
 
-        #self.image_roi.addScaleHandle([10, 1], [0, 0])
-        self.image_roi.addRotateHandle([sz//2, sz//2], [2, 2])
-
+        self.image_roi.addTranslateHandle([sz//2, sz//2], [2, 2])
+        self.image_roi_math.addTranslateHandle([sz // 4, sz // 4], [2, 2])
         self.image_view.addItem(self.image_roi)
+
         self.spec_roi = pg.LinearRegionItem(values=(self.stack_center - self.stack_width,
                                                     self.stack_center + self.stack_width))
-        self.spec_roi_math = pg.LinearRegionItem(values=(self.stack_center//2 - self.stack_width,
-                                                    self.stack_center//2 + self.stack_width))
-        self.spec_roi.setBounds([0, self.dim1])
-        self.sb_roi_spec_s.setValue(self.stack_center - self.stack_width)
-        self.sb_roi_spec_e.setValue(self.stack_center + self.stack_width)
+
+        logger.info('Spectrum ROI Added')
+
+        self.spec_roi_math = pg.LinearRegionItem(values=(self.stack_center - self.stack_width-10,
+                                                         self.stack_center + self.stack_width-10), pen='r',
+                                                 brush=QtGui.QColor(0, 255, 200, 50)
+                                                 )
         self.update_spectrum()
         self.update_image_roi()
 
         # connections
         self.spec_roi.sigRegionChanged.connect(self.update_image_roi)
-        #self.spec_roi.sigRegionChanged.connect(self.spec_roi_calc)
         self.image_roi.sigRegionChanged.connect(self.update_spectrum)
         self.sb_roi_spec_s.valueChanged.connect(self.set_spec_roi)
         self.sb_roi_spec_e.valueChanged.connect(self.set_spec_roi)
-        self.spec_roi_math.sigRegionChanged.connect(self.spec_roi_calc)
-        # self.pb_play_stack.clicked.connect(self.play_stack)
+        self.spec_roi_math.sigRegionChangeFinished.connect(self.spec_roi_calc)
+        self.rb_math_roi.clicked.connect(self.update_spectrum)
+        self.rb_math_roi_img.clicked.connect(self.math_img_roi_flag)
+        self.image_roi_math.sigRegionChanged.connect(self.image_roi_calc)
 
-    def update_region(self):
-        region = self.image_roi.getArrayRegion(self.updated_stack,self.image_view.imageItem, axes=(1,2))
-        print(region.shape)
+    def update_spec_roi_values(self):
+        self.stack_center = int(self.energy[len(self.energy)//2])
+        self.stack_width = int((self.energy.max()-self.energy.min()) * 0.05)
+        #self.spec_roi.setRegion(self.stack_center - self.stack_width, self.stack_center + self.stack_width)
+        #self.spec_roi_math.setRegion(self.stack_center - self.stack_width-10, self.stack_center + self.stack_width-10)
+        self.spec_roi.setBounds([self.xdata[0], self.xdata[-1]]) # if want to set bounds for the spec roi
+        self.spec_roi_math.setBounds([self.xdata[0], self.xdata[-1]])
+        self.sb_roi_spec_s.setValue(self.stack_center - self.stack_width)
+        self.sb_roi_spec_e.setValue(self.stack_center + self.stack_width)
+
 
     def update_spectrum(self):
 
-        xdata = np.arange(self.sb_zrange1.value(), self.sb_zrange2.value(), 1)
-        #ydata = remove_nan_inf(get_sum_spectra(self.updated_stack[:, xmin:xmax,ymin:ymax]))
-        ydata = self.image_roi.getArrayRegion(self.updated_stack, self.image_view.imageItem, axes=(1, 2))
-        sizex, sizey = ydata.shape[1], ydata.shape[2]
+        self.xdata = self.energy[self.sb_zrange1.value():self.sb_zrange2.value()]
+        self.ydata = self.image_roi.getArrayRegion(self.updated_stack, self.image_view.imageItem, axes=(1, 2))
+        sizex, sizey = self.ydata.shape[1], self.ydata.shape[2]
         posx, posy = self.image_roi.pos()
         self.le_roi.setText(str(int(posx))+':' +str(int(posy)))
         self.le_roi_size.setText(str(sizex) +','+ str(sizey))
-
-        self.spectrum_view.plot(xdata, get_sum_spectra(ydata), clear=True)
+        self.spectrum_view.plot(self.xdata, get_sum_spectra(self.ydata), clear=True)
         self.spectrum_view.addItem(self.spec_roi)
-        self.spectrum_view.addItem(self.spec_roi_math)
+        self.update_spec_roi_values()
+        self.math_roi_flag()
 
     def update_image_roi(self):
         self.spec_lo, self.spec_hi = self.spec_roi.getRegion()
+        print(self.spec_lo, self.spec_hi)
+        self.spec_lo_idx = (np.abs(self.energy - self.spec_lo)).argmin()
+        self.spec_hi_idx = (np.abs(self.energy - self.spec_hi)).argmin()
+        print(self.spec_lo_idx, self.spec_hi_idx)
         self.le_spec_roi.setText(str(int(self.spec_lo)) + ':'+ str(int(self.spec_hi)))
         self.le_spec_roi_size.setText(str(int(self.spec_hi-self.spec_lo)))
-        self.image_view.setImage(self.updated_stack[int(self.spec_lo):int(self.spec_hi), :, :].mean(0))
+        self.update_spec_roi_values()
+
+        try:
+            self.image_view.setImage(self.updated_stack[int(self.spec_lo_idx):int(self.spec_hi_idx), :, :].mean(0))
+        except:
+            logger.error("Indices are out of range; Image cannot be created")
+            pass
+
 
     def set_spec_roi(self):
         self.spec_lo_, self.spec_hi_ = int(self.sb_roi_spec_s.value()), int(self.sb_roi_spec_e.value())
         self.spec_roi.setRegion((self.spec_lo_, self.spec_hi_))
         self.update_image_roi()
 
+    def select_elist(self):
+        file_name = QFileDialog().getOpenFileName(self, "Open energy list", '', 'text file (*.txt)')
+
+        try:
+            self.energy = np.loadtxt(str(file_name[0]))
+            logger.info ('Energy file loaded')
+            if self.energy.any():
+                self.change_color_on_load(self.pb_elist_xanes)
+
+            assert len(self.energy) == self.dim1
+            self.update_spectrum()
+            self.update_image_roi()
+
+        except OSError:
+            logger.error('No file selected')
+            pass
+
+    def math_roi_flag(self):
+        if self.rb_math_roi.isChecked():
+            self.rb_math_roi.setStyleSheet("color : green")
+            self.spectrum_view.addItem(self.spec_roi_math)
+        else:
+            self.rb_math_roi.setStyleSheet("color : red")
+            self.spectrum_view.removeItem(self.spec_roi_math)
+
     def spec_roi_calc(self):
+
         self.spec_lo_m, self.spec_hi_m = self.spec_roi_math.getRegion()
-        img1 = self.updated_stack[int(self.spec_lo):int(self.spec_hi), :, :].mean(0)
-        img2 = self.updated_stack[int(self.spec_lo_m):int(self.spec_hi_m), :, :].mean(0)
-        self.image_view.setImage(remove_nan_inf(img1/img2))
+        self.spec_lo_m_idx = (np.abs(self.energy - self.spec_lo_m)).argmin()
+        self.spec_hi_m_idx = (np.abs(self.energy - self.spec_hi_m)).argmin()
+
+        if self.cb_roi_operation.currentText() == "Correlation Plot":
+            self.correlation_plot()
+
+        else:
+            calc = {'Divide':np.divide, 'Subtract': np.subtract, 'Add': np.add}
+            img1 = self.updated_stack[int(self.spec_lo_idx):int(self.spec_hi_idx), :, :].mean(0)
+            img2 = self.updated_stack[int(self.spec_lo_m_idx):int(self.spec_hi_m_idx), :, :].mean(0)
+            self.image_view.setImage(remove_nan_inf(calc[self.cb_roi_operation.currentText()](img1,img2)))
+
+    def correlation_plot(self):
+
+        img1 = self.updated_stack[int(self.spec_lo_idx):int(self.spec_hi_idx), :, :].mean(0)
+        img2 = self.updated_stack[int(self.spec_lo_m_idx):int(self.spec_hi_m_idx), :, :].mean(0)
+
+        self.scatter_window = ScatterPlot(img1,img2)
+        ph = self.geometry().height()
+        pw = self.geometry().width()
+        px = self.geometry().x()
+        py = self.geometry().y()
+        dw = self.scatter_window.width()
+        dh = self.scatter_window.height()
+        self.scatter_window.setGeometry(px+0.65*pw, py + ph - 2*dh-5, dw, dh)
+        self.scatter_window.show()
+
+    def math_img_roi_flag(self):
+        if self.rb_math_roi_img.isChecked():
+            self.rb_math_roi_img.setStyleSheet("color : green")
+            self.image_view.addItem(self.image_roi_math)
+        else:
+            self.rb_math_roi_img.setStyleSheet("color : red")
+            self.image_view.removeItem(self.image_roi_math)
+
+    def image_roi_calc(self):
+
+        if self.rb_math_roi_img.isChecked():
+            self.calc = {'Divide':np.divide, 'Subtract': np.subtract, 'Add': np.add}
+            ref_region = self.image_roi_math.getArrayRegion(self.updated_stack, self.image_view.imageItem, axes=(1, 2))
+            ref_reg_avg = ref_region[int(self.spec_lo):int(self.spec_hi), :, :].mean()
+            currentImage = self.updated_stack[int(self.spec_lo):int(self.spec_hi), :, :].mean(0)
+            self.image_view.setImage(self.calc[self.cb_img_roi_action.currentText()]
+                                     (currentImage,(ref_reg_avg+currentImage*0)))
+            self.update_spec_image_roi()
+        else:
+            pass
+
+    def update_spec_image_roi(self):
+        main_roi_reg = self.image_roi.getArrayRegion(self.updated_stack, self.image_view.imageItem, axes=(1, 2))
+        math_roi_reg = self.image_roi_math.getArrayRegion(self.updated_stack, self.image_view.imageItem, axes=(1, 2))
+        calc_spec = self.calc[self.cb_img_roi_action.currentText()](get_mean_spectra(main_roi_reg),
+                                                                    get_mean_spectra(math_roi_reg))
+        self.spectrum_view.addLegend()
+        self.spectrum_view.plot(self.xdata, calc_spec, clear=True, pen ='m',
+                                name =self.cb_img_roi_action.currentText()+"ed")
+        self.spectrum_view.plot(self.xdata, get_mean_spectra(main_roi_reg), pen ='g',
+                                name = "raw")
+        self.spectrum_view.addItem(self.spec_roi)
+
 
 
     def save_stack(self):
@@ -416,7 +450,7 @@ class Ui(QtWidgets.QMainWindow):
         file_name = QFileDialog().getOpenFileName(self, "Open reference file", '', 'text file (*.txt *.nor)')
         try:
             self.refs = np.loadtxt(str(file_name[0]))
-            if bool(self.refs.max()):
+            if self.refs.any():
                 self.change_color_on_load(self.pb_ref_xanes)
                 plot_xanes_refs(self.refs)
 
@@ -424,17 +458,6 @@ class Ui(QtWidgets.QMainWindow):
             logger.error('No file selected')
             pass
 
-
-    def select_elist(self):
-        file_name = QFileDialog().getOpenFileName(self, "Open energy list", '', 'text file (*.txt)')
-        try:
-            self.energy = np.loadtxt(str(file_name[0]))
-            if bool(self.energy.max()) == True:
-                self.change_color_on_load(self.pb_elist_xanes)
-
-        except OSError:
-            logger.error('No file selected')
-            pass
 
     def change_color_on_load(self, button_name):
         button_name.setStyleSheet("background-color : green")
@@ -468,6 +491,7 @@ if __name__ == "__main__":
     logger.addHandler(stream_handler)
 
     app = QtWidgets.QApplication(sys.argv)
+    app.setAttribute(QtCore.Qt.AA_Use96Dpi)
     window = Ui()
     window.show()
     sys.exit(app.exec_())

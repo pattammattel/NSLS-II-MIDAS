@@ -6,9 +6,9 @@ import sklearn.decomposition as sd
 import sklearn.cluster as sc
 import matplotlib.pyplot as plt
 import h5py
-
+import logging
 from scipy.signal import savgol_filter
-
+logger = logging.getLogger()
 
 def get_xrf_data( h='h5file'):
     f = h5py.File(h, 'r')
@@ -20,9 +20,11 @@ def get_xrf_data( h='h5file'):
 
     try:
         mono_e = int(f['xrfmap/scan_metadata'].attrs['instrument_mono_incident_energy'] * 1000)
+        logger.info("Excitation energy was taken from the h5 data")
 
     except:
         mono_e = 12000
+        logger.info("Unable to get Excitation energy from the h5 data; using default value = 12 KeV ")
 
     return remove_nan_inf(xrf_stack), mono_e
 

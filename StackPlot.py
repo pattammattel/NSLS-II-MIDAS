@@ -24,7 +24,7 @@ class StackSpecViewer(QtWidgets.QMainWindow):
         uic.loadUi('StackViewer.ui', self)
         self.im_stack = im_stack
         (self.dim1, self.dim3, self.dim2) = self.im_stack.shape
-
+        self.x_energy = np.arange(0,self.dim1)
         self.image_view.setImage(self.im_stack)
         self.image_view.ui.menuBtn.hide()
         self.image_view.ui.roiBtn.hide()
@@ -88,8 +88,9 @@ class StackSpecViewer(QtWidgets.QMainWindow):
 
         # print(self.updated_im_stack[:, xmax, ymax])
         self.xdata = np.arange(0, self.dim1, 1)
+
         ydata = remove_nan_inf(get_sum_spectra(self.updated_im_stack[:, xmin:xmax, ymin:ymax]))
-        self.spectrum_view.plot(self.xdata, ydata, clear=True)
+        self.spectrum_view.plot(self.x_energy, ydata, clear=True)
         self.spectrum_view.addItem(self.spec_roi)
 
     def update_image_roi(self):
@@ -238,7 +239,7 @@ class XANESViewer(QtWidgets.QMainWindow):
         self.sz = np.max([int(self.dim2 * 0.25),int(self.dim3 * 0.25)])
         self.image_roi = pg.PolyLineROI([[0,0], [0,self.sz], [self.sz,self.sz], [self.sz,0]],
                                         pos =(int(self.dim2 // 2), int(self.dim3 // 2)), closed=True)
-        self.image_roi.addRotateHandle([self.sz // 2, self.sz // 2], [2, 2])
+        self.image_roi.addTranslateHandle([self.sz//2, self.sz//2], [2, 2])
         self.image_view.setImage(self.im_stack)
         self.image_view.ui.menuBtn.hide()
         self.image_view.ui.roiBtn.hide()
@@ -331,3 +332,34 @@ class XANESViewer(QtWidgets.QMainWindow):
         self.image_roi.addRotateHandle([self.sz // 2, self.sz // 2], [2, 2])
 
     '''
+
+class ScatterPlot(QtWidgets.QMainWindow):
+
+    def __init__(self, img1, img2):
+        super(ScatterPlot, self).__init__()
+
+        uic.loadUi('ScatterView.ui', self)
+        w1 = self.scatterViewer.addPlot()
+        self.img1 = img1.flatten()
+        self.img2 = img2.flatten()
+        s1 = pg.ScatterPlotItem(size=2, pen=pg.mkPen(None), brush=pg.mkBrush(0, 255, 255, 120))
+        s1.setData(self.img1,self.img2)
+        w1.addItem(s1)
+
+class ScatterPlot2(QtWidgets.QMainWindow):
+
+    def __init__(self, img1, img2):
+        super(ScatterPlot2, self).__init__()
+
+        uic.loadUi('ScatterView.ui', self)
+        w1 = self.scatterViewer.addPlot()
+        self.img1 = img1.flatten()
+        self.img2 = img2.flatten()
+        s1 = pg.ScatterPlotItem(size=2, pen=pg.mkPen(None), brush=pg.mkBrush(0, 255, 255, 120))
+        s1.setData(self.img1,self.img2)
+        w1.addItem(s1)
+
+
+
+
+
