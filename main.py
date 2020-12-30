@@ -267,10 +267,8 @@ class Ui(QtWidgets.QMainWindow):
 
     def update_image_roi(self):
         self.spec_lo, self.spec_hi = self.spec_roi.getRegion()
-        print(self.spec_lo, self.spec_hi)
         self.spec_lo_idx = (np.abs(self.energy - self.spec_lo)).argmin()
         self.spec_hi_idx = (np.abs(self.energy - self.spec_hi)).argmin()
-        print(self.spec_lo_idx, self.spec_hi_idx)
         self.le_spec_roi.setText(str(int(self.spec_lo)) + ':'+ str(int(self.spec_hi)))
         self.le_spec_roi_size.setText(str(int(self.spec_hi-self.spec_lo)))
         self.update_spec_roi_values()
