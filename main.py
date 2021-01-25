@@ -5,7 +5,6 @@
 
 import logging, sys, webbrowser
 
-from subprocess import Popen
 from PyQt5 import QtWidgets, uic, QtCore
 from PyQt5.QtWidgets import QMessageBox, QFileDialog, QDesktopWidget, QApplication
 
@@ -14,7 +13,7 @@ from StackCalcs import *
 logger = logging.getLogger()
 
 class Ui(QtWidgets.QMainWindow):
-    def __init__(self, im_stack=None, energy=None, refs = None):
+    def __init__(self, im_stack=None, energy=[], refs = []):
         super(Ui, self).__init__()
         uic.loadUi('mainwindow_admin.ui', self)
         self.im_stack = im_stack
@@ -23,6 +22,7 @@ class Ui(QtWidgets.QMainWindow):
         self.refs = refs
 
         self.actionOpen_Image_Data.triggered.connect(self.browse_file)
+        self.actionOpen_Multiple_Files.triggered.connect(self.load_mutliple_file)
         self.actionSave_as.triggered.connect(self.save_stack)
         self.actionExit.triggered.connect(self.close)
         self.actionOpen_in_GitHub.triggered.connect(self.open_github_link)
@@ -43,8 +43,11 @@ class Ui(QtWidgets.QMainWindow):
         self.pb_crop.clicked.connect(self.view_stack)
         self.pb_ref_xanes.clicked.connect(self.select_ref_file)
         self.pb_elist_xanes.clicked.connect(self.select_elist)
-
         self.pb_set_spec_roi.clicked.connect(self.set_spec_roi)
+
+        #save_options
+        self.pb_save_disp_img.clicked.connect(self.save_disp_img)
+        self.pb_save_disp_spec.clicked.connect(self.save_disp_spec)
 
         # Analysis
         self.pb_pca_scree.clicked.connect(self.pca_scree_)
@@ -52,12 +55,11 @@ class Ui(QtWidgets.QMainWindow):
         self.pb_kmeans_elbow.clicked.connect(self.kmeans_elbow)
         self.pb_calc_cluster.clicked.connect(self.clustering_)
         self.pb_xanes_fit.clicked.connect(self.fast_xanes_fitting)
+        self.pb_plot_refs.clicked.connect(self.plt_xanes_refs)
         self.show()
 
     def open_github_link(self):
         webbrowser.open('https://github.com/pattammattel/NSLS-II-MIDAS')
-
-    # XRF Loading
 
     def browse_file(self):
         filename = QFileDialog().getOpenFileName(self, "Select image data", '', 'image file(*.hdf *.h5 *tiff *tif )')
@@ -67,28 +69,41 @@ class Ui(QtWidgets.QMainWindow):
         except:
             pass
 
+    def load_mutliple_file(self):
+        filter = "TIFF (*.tiff);;TIF (*.tif)"
+        file_name = QFileDialog()
+        file_name.setFileMode(QFileDialog.ExistingFiles)
+        names = file_name.getOpenFileNames(self, "Open files", " ", filter)
+        print (names)
+
     def load_stack(self):
-        logger.info('Loading.. please wait...')
+        self.sb_zrange2.setMaximum(100000)
+        self.sb_zrange1.setValue(0)
+
+        self.statusbar_main.showMessage('Loading.. please wait...')
 
         if self.file_name.endswith('.h5'):
-            stack_, mono_e = get_xrf_data(self.file_name)
-            self.sb_zrange2.setMaximum(100000)
+            self.stack_, mono_e = get_xrf_data(self.file_name)
             self.sb_zrange2.setValue(mono_e/10)
-            self.sb_zrange1.setValue(0)
 
         elif self.file_name.endswith('.tiff') or self.file_name.endswith('.tif'):
-            stack_ = tf.imread(self.file_name).transpose(1, 2, 0)
-            self.sb_zrange1.setValue(0)
-            self.sb_zrange2.setMaximum(100000)
-            self.sb_zrange2.setValue(stack_.shape[-1])
+            self.stack_ = tf.imread(self.file_name).transpose(1, 2, 0)
+            self.sb_zrange2.setValue(self.stack_.shape[-1])
 
         else:
             logger.error('Unknown data format')
 
+        self.set_stack_params()
+
+    def set_stack_params(self):
+
+        self.sb_zrange2.setMaximum(100000)
+        self.sb_zrange1.setValue(0)
+
         try:
 
-            logger.info(f' loaded stack with {np.shape(stack_)} from the file')
-            self.im_stack = stack_.T
+            logger.info(f' loaded stack with {np.shape(self.stack_)} from the file')
+            self.im_stack = self.stack_.T
             self.init_dimZ = self.im_stack.shape[0]
             self.init_dimX = self.im_stack.shape[1]
             self.init_dimY = self.im_stack.shape[2]
@@ -103,15 +118,18 @@ class Ui(QtWidgets.QMainWindow):
             pass
 
         try:
+            self.energy = []
             self.view_stack()
             logger.info("Stack displayed correctly")
             self.update_stack_info()
 
         except:
             logger.error("Trouble with stack display")
+            self.statusbar_main.showMessage("Error: Trouble with stack display")
             pass
 
         logger.info(f'completed image shape {np.shape(self.im_stack)}')
+        self.statusbar_main.showMessage(f'Loaded: {self.file_name}')
 
     def reset_and_load_stack(self):
         self.rb_math_roi_img.setChecked(False)
@@ -198,8 +216,9 @@ class Ui(QtWidgets.QMainWindow):
         self.image_view.ui.roiBtn.hide()
         self.image_view.setPredefinedGradient('viridis')
         self.image_view.setCurrentIndex(self.dim1//2)
-        self.energy = np.arange(self.z2)*10
-        logger.info("Arbitary X-axis used in the plot for XANES")
+        if len(self.energy) ==0:
+            self.energy = np.arange(self.z2)*10
+            logger.info("Arbitary X-axis used in the plot for XANES")
         self.stack_center = int(self.energy[len(self.energy)//2])
         self.stack_width = int((self.energy.max()-self.energy.min()) * 0.05)
 
@@ -212,11 +231,12 @@ class Ui(QtWidgets.QMainWindow):
         logger.info("Image ROI Added")
 
         # a second optional ROI for calculations follow
-        self.image_roi_math = pg.PolyLineROI([[0,0], [0,sz//2], [sz//2,sz//2], [sz//2,0]],
-                                        pos =(0, 0), pen = 'r', closed=True)
+        self.image_roi_math = pg.PolyLineROI([[0,0], [0,sz], [sz,sz], [sz,0]],
+                                        pos =(int(self.dim3 // 3), int(self.dim2 // 3)),
+                                        pen = 'r', closed=True)
 
         self.image_roi.addTranslateHandle([sz//2, sz//2], [2, 2])
-        self.image_roi_math.addTranslateHandle([sz // 4, sz // 4], [2, 2])
+        self.image_roi_math.addTranslateHandle([sz // 2, sz // 2], [2, 2])
         self.image_view.addItem(self.image_roi)
 
         self.spec_roi = pg.LinearRegionItem(values=(self.stack_center - self.stack_width,
@@ -244,23 +264,27 @@ class Ui(QtWidgets.QMainWindow):
     def update_spec_roi_values(self):
         self.stack_center = int(self.energy[len(self.energy)//2])
         self.stack_width = int((self.energy.max()-self.energy.min()) * 0.05)
-        #self.spec_roi.setRegion(self.stack_center - self.stack_width, self.stack_center + self.stack_width)
-        #self.spec_roi_math.setRegion(self.stack_center - self.stack_width-10, self.stack_center + self.stack_width-10)
         self.spec_roi.setBounds([self.xdata[0], self.xdata[-1]]) # if want to set bounds for the spec roi
         self.spec_roi_math.setBounds([self.xdata[0], self.xdata[-1]])
         self.sb_roi_spec_s.setValue(self.stack_center - self.stack_width)
         self.sb_roi_spec_e.setValue(self.stack_center + self.stack_width)
 
-
     def update_spectrum(self):
-
         self.xdata = self.energy[self.sb_zrange1.value():self.sb_zrange2.value()]
         self.ydata = self.image_roi.getArrayRegion(self.updated_stack, self.image_view.imageItem, axes=(1, 2))
         sizex, sizey = self.ydata.shape[1], self.ydata.shape[2]
         posx, posy = self.image_roi.pos()
         self.le_roi.setText(str(int(posx))+':' +str(int(posy)))
         self.le_roi_size.setText(str(sizex) +','+ str(sizey))
-        self.spectrum_view.plot(self.xdata, get_sum_spectra(self.ydata), clear=True)
+        self.spectrum_view.plot(self.xdata, get_mean_spectra(self.ydata), clear=True)
+        if self.energy[-1]>1000:
+            self.e_unit = 'eV'
+        else:
+            self.e_unit = 'keV'
+
+        self.spectrum_view.setLabel('bottom','Energy', self.e_unit)
+        self.spectrum_view.setLabel('left', 'Intensity', 'A.U.')
+        self.curr_spec = np.column_stack((self.xdata,get_mean_spectra(self.ydata)))
         self.spectrum_view.addItem(self.spec_roi)
         self.update_spec_roi_values()
         self.math_roi_flag()
@@ -274,15 +298,24 @@ class Ui(QtWidgets.QMainWindow):
         self.update_spec_roi_values()
 
         try:
-            self.image_view.setImage(self.updated_stack[int(self.spec_lo_idx):int(self.spec_hi_idx), :, :].mean(0))
-        except:
-            logger.error("Indices are out of range; Image cannot be created")
-            pass
+            if int(self.spec_lo_idx) == int(self.spec_hi_idx):
+                self.disp_img = self.updated_stack[int(self.spec_hi_idx), :, :]
+                self.statusbar_main.showMessage(f'Image Display is stack # {self.spec_hi_idx}')
 
+            else:
+                self.disp_img = self.updated_stack[int(self.spec_lo_idx):int(self.spec_hi_idx), :, :].mean(0)
+                self.statusbar_main.showMessage(f'Image display is stack # range: '
+                                                f'{self.spec_lo_idx}:{self.spec_hi_idx}')
+            self.image_view.setImage(self.disp_img)
+        except:
+            logger.warning("Indices are out of range; Image cannot be created")
+            pass
 
     def set_spec_roi(self):
         self.spec_lo_, self.spec_hi_ = int(self.sb_roi_spec_s.value()), int(self.sb_roi_spec_e.value())
-        self.spec_roi.setRegion((self.spec_lo_, self.spec_hi_))
+        self.spec_lo_idx_ = (np.abs(self.energy - self.spec_lo_)).argmin()
+        self.spec_hi_idx_ = (np.abs(self.energy - self.spec_hi_)).argmin()
+        self.spec_roi.setRegion((self.xdata[self.spec_lo_idx_], self.xdata[self.spec_hi_idx_]))
         self.update_image_roi()
 
     def select_elist(self):
@@ -295,7 +328,14 @@ class Ui(QtWidgets.QMainWindow):
                 self.change_color_on_load(self.pb_elist_xanes)
 
             assert len(self.energy) == self.dim1
+
             self.update_spectrum()
+            self.spec_roi.setRegion((self.stack_center - self.stack_width, self.stack_center + self.stack_width))
+            self.spec_roi_math.setRegion(
+                                        (self.stack_center - self.stack_width - 10,
+                                         self.stack_center + self.stack_width - 10)
+                                        )
+
             self.update_image_roi()
 
         except OSError:
@@ -316,28 +356,41 @@ class Ui(QtWidgets.QMainWindow):
         self.spec_lo_m_idx = (np.abs(self.energy - self.spec_lo_m)).argmin()
         self.spec_hi_m_idx = (np.abs(self.energy - self.spec_hi_m)).argmin()
 
+        if int(self.spec_lo_idx) == int(self.spec_hi_idx):
+            self.img1 = self.updated_stack[int(self.spec_hi_idx), :, :]
+
+        else:
+            self.img1 = self.updated_stack[int(self.spec_lo_idx):int(self.spec_hi_idx), :, :].mean(0)
+
+        if int(self.spec_lo_m_idx) == int(self.spec_hi_m_idx):
+            self.img2 = self.updated_stack[int(self.spec_hi_m_idx), :, :]
+
+        else:
+            self.img2 = self.updated_stack[int(self.spec_lo_m_idx):int(self.spec_hi_m_idx), :, :].mean(0)
+
         if self.cb_roi_operation.currentText() == "Correlation Plot":
             self.correlation_plot()
 
         else:
             calc = {'Divide':np.divide, 'Subtract': np.subtract, 'Add': np.add}
-            img1 = self.updated_stack[int(self.spec_lo_idx):int(self.spec_hi_idx), :, :].mean(0)
-            img2 = self.updated_stack[int(self.spec_lo_m_idx):int(self.spec_hi_m_idx), :, :].mean(0)
-            self.image_view.setImage(remove_nan_inf(calc[self.cb_roi_operation.currentText()](img1,img2)))
+            self.disp_img = remove_nan_inf(calc[self.cb_roi_operation.currentText()](self.img1,self.img2))
+            self.image_view.setImage(self.disp_img)
 
     def correlation_plot(self):
 
-        img1 = self.updated_stack[int(self.spec_lo_idx):int(self.spec_hi_idx), :, :].mean(0)
-        img2 = self.updated_stack[int(self.spec_lo_m_idx):int(self.spec_hi_m_idx), :, :].mean(0)
 
-        self.scatter_window = ScatterPlot(img1,img2)
+        self.statusbar_main.showMessage(f'Correlation stack {int(self.spec_lo_idx)}:{int(self.spec_hi_idx)} with '
+                                        f'{int(self.spec_lo_m_idx)}:{int(self.spec_hi_m_idx)}')
+
+        self.scatter_window = ScatterPlot(self.img1,self.img2)
+
         ph = self.geometry().height()
         pw = self.geometry().width()
         px = self.geometry().x()
         py = self.geometry().y()
         dw = self.scatter_window.width()
         dh = self.scatter_window.height()
-        self.scatter_window.setGeometry(px+0.65*pw, py + ph - 2*dh-5, dw, dh)
+        #self.scatter_window.setGeometry(px+0.65*pw, py + ph - 2*dh-5, dw, dh)
         self.scatter_window.show()
 
     def math_img_roi_flag(self):
@@ -353,9 +406,13 @@ class Ui(QtWidgets.QMainWindow):
         if self.rb_math_roi_img.isChecked():
             self.calc = {'Divide':np.divide, 'Subtract': np.subtract, 'Add': np.add}
             ref_region = self.image_roi_math.getArrayRegion(self.updated_stack, self.image_view.imageItem, axes=(1, 2))
-            ref_reg_avg = ref_region[int(self.spec_lo):int(self.spec_hi), :, :].mean()
-            currentImage = self.updated_stack[int(self.spec_lo):int(self.spec_hi), :, :].mean(0)
-            self.image_view.setImage(self.calc[self.cb_img_roi_action.currentText()]
+            ref_reg_avg = ref_region[int(self.spec_lo_idx):int(self.spec_hi_idx), :, :].mean()
+            currentImage = self.updated_stack[int(self.spec_lo_idx):int(self.spec_hi_idx), :, :].mean(0)
+            if self.calc[self.cb_img_roi_action.currentText()] == 'Compare':
+                pass
+
+            else:
+                self.image_view.setImage(self.calc[self.cb_img_roi_action.currentText()]
                                      (currentImage,(ref_reg_avg+currentImage*0)))
             self.update_spec_image_roi()
         else:
@@ -371,26 +428,39 @@ class Ui(QtWidgets.QMainWindow):
                                 name =self.cb_img_roi_action.currentText()+"ed")
         self.spectrum_view.plot(self.xdata, get_mean_spectra(main_roi_reg), pen ='g',
                                 name = "raw")
+        self.curr_spec = np.column_stack((self.xdata,calc_spec,get_mean_spectra(main_roi_reg)))
+
         self.spectrum_view.addItem(self.spec_roi)
-
-
 
     def save_stack(self):
         try:
             self.update_stack()
-            file_name = QFileDialog().getSaveFileName(self, "", '', 'image file(*tiff *tif )')
+            file_name = QFileDialog().getSaveFileName(self, "Save image data", '', 'image file(*tiff *tif )')
             tf.imsave(str(file_name[0]), self.updated_stack.transpose(0,2,1))
             logger.info(f'Updated Image Saved: {str(file_name[0])}')
         except:
             logger.error('No file to save')
             pass
 
-    def open_xrf_stack_imagej(self):
-        tf.imsave(f'{self.le_wd.text()}/tmp_image.tiff', np.float32(self.updated_stack), imagej=True)
-        imagej_path = r'C:\Users\pattammattel\Fiji.app\ImageJ-win64.exe'
-        Popen([imagej_path, f'{self.le_wd.text()}/tmp_image.tiff'])
+    def save_disp_img(self):
+        try:
+            file_name = QFileDialog().getSaveFileName(self, "Save image data", '', 'image file(*tiff *tif )')
+            tf.imsave(str(file_name[0])+'.tiff', self.disp_img.T)
+            logger.info(f'Updated Image Saved: {str(file_name[0])}')
 
-    # Component Analysis
+        except:
+            logger.error('No file to save')
+            pass
+
+    def save_disp_spec(self):
+        try:
+            file_name = QFileDialog().getSaveFileName(self, "Save Spectrum Data", '', 'txt file(*txt)')
+            np.savetxt(str(file_name[0])+'.txt', self.curr_spec)
+            logger.info(f'Spectrum Saved: {str(file_name[0])}')
+
+        except:
+            logger.error('No file to save')
+            pass
 
     def pca_scree_(self):
         logger.info('Process started..')
@@ -409,7 +479,7 @@ class Ui(QtWidgets.QMainWindow):
         ims, comp_spec, decon_spec, decomp_map = decompose_stack(self.updated_stack,
             decompose_method=method_ , n_components_=n_components)
 
-        self._new_window3 = ComponentViewer(ims, comp_spec, decon_spec,decomp_map)
+        self._new_window3 = ComponentViewer(ims,self.xdata, comp_spec, decon_spec,decomp_map)
         self._new_window3.show()
 
         logger.info('Process complete')
@@ -436,26 +506,25 @@ class Ui(QtWidgets.QMainWindow):
                                                    decompose_method=self.cb_comp_method.currentText(),
                                                    decompose_comp = self.sb_ncomp.value())
 
-        self._new_window4 = ClusterViewer(decon_images,X_cluster, decon_spectra)
+        self._new_window4 = ClusterViewer(decon_images,self.xdata, X_cluster, decon_spectra)
         self._new_window4.show()
 
         logger.info('Process complete')
-
-
-    # XANES files
 
     def select_ref_file(self):
         file_name = QFileDialog().getOpenFileName(self, "Open reference file", '', 'text file (*.txt *.nor)')
         try:
             self.refs = np.loadtxt(str(file_name[0]))
-            if self.refs.any():
-                self.change_color_on_load(self.pb_ref_xanes)
-                plot_xanes_refs(self.refs)
+            self.plt_xanes_refs()
 
         except OSError:
             logger.error('No file selected')
             pass
 
+    def plt_xanes_refs(self):
+        if len(self.refs) != 0:
+            self.change_color_on_load(self.pb_ref_xanes)
+            plot_xanes_refs(self.refs)
 
     def change_color_on_load(self, button_name):
         button_name.setStyleSheet("background-color : green")
@@ -464,7 +533,11 @@ class Ui(QtWidgets.QMainWindow):
 
         logger.info('Process started..')
 
-        e_list1 = self.energy
+        if self.cb_kev_flag.isChecked():
+            e_list1 = self.energy*1000
+
+        else:
+            e_list1 = self.energy
         ref1 = self.refs
         self.update_stack()
 
@@ -474,8 +547,6 @@ class Ui(QtWidgets.QMainWindow):
 
         self._new_window5 = XANESViewer(xanes_maps.T, self.updated_stack, e_list1, ref1)
         self._new_window5.show()
-
-
 
 if __name__ == "__main__":
 

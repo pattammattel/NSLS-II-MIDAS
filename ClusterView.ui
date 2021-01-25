@@ -1,7 +1,7 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <ui version="4.0">
- <class>MainWindow</class>
- <widget class="QMainWindow" name="MainWindow">
+ <class>hs_component_number</class>
+ <widget class="QMainWindow" name="hs_component_number">
   <property name="geometry">
    <rect>
     <x>0</x>
@@ -10,144 +10,64 @@
     <height>815</height>
    </rect>
   </property>
+  <property name="sizePolicy">
+   <sizepolicy hsizetype="Ignored" vsizetype="Preferred">
+    <horstretch>0</horstretch>
+    <verstretch>0</verstretch>
+   </sizepolicy>
+  </property>
   <property name="windowTitle">
    <string>MainWindow</string>
   </property>
+  <property name="styleSheet">
+   <string notr="true">background-color: rgb(240, 240, 240);</string>
+  </property>
   <widget class="QWidget" name="centralwidget">
-   <layout class="QGridLayout" name="gridLayout_8">
+   <layout class="QGridLayout" name="gridLayout_9">
     <item row="0" column="0">
-     <layout class="QGridLayout" name="gridLayout_7">
-      <item row="1" column="0">
-       <layout class="QGridLayout" name="gridLayout_6">
+     <layout class="QGridLayout" name="gridLayout_8">
+      <item row="0" column="0">
+       <layout class="QGridLayout" name="gridLayout_7">
         <item row="0" column="0">
-         <layout class="QGridLayout" name="gridLayout_2">
+         <layout class="QGridLayout" name="gridLayout_5">
           <item row="0" column="0">
-           <widget class="QLabel" name="label_3">
-            <property name="styleSheet">
-             <string notr="true">font: 75 14pt &quot;MS Shell Dlg 2&quot;;</string>
-            </property>
-            <property name="text">
-             <string/>
-            </property>
-           </widget>
+           <layout class="QGridLayout" name="gridLayout_3">
+            <item row="0" column="0">
+             <widget class="QLabel" name="label_4">
+              <property name="styleSheet">
+               <string notr="true">font: 14pt &quot;MS Shell Dlg 2&quot;;</string>
+              </property>
+              <property name="text">
+               <string>Nth Cluster</string>
+              </property>
+              <property name="alignment">
+               <set>Qt::AlignCenter</set>
+              </property>
+             </widget>
+            </item>
+            <item row="1" column="0">
+             <widget class="ImageView" name="image_view"/>
+            </item>
+           </layout>
           </item>
-          <item row="0" column="1">
-           <widget class="QSlider" name="hs_comp_number">
-            <property name="autoFillBackground">
-             <bool>false</bool>
-            </property>
-            <property name="styleSheet">
-             <string notr="true"/>
-            </property>
+          <item row="1" column="0">
+           <widget class="QScrollBar" name="hsb_cluster_number">
             <property name="minimum">
              <number>0</number>
             </property>
             <property name="maximum">
-             <number>10</number>
+             <number>20</number>
             </property>
             <property name="pageStep">
              <number>1</number>
             </property>
-            <property name="orientation">
-             <enum>Qt::Horizontal</enum>
-            </property>
-            <property name="invertedAppearance">
-             <bool>false</bool>
-            </property>
-            <property name="invertedControls">
-             <bool>false</bool>
-            </property>
-            <property name="tickPosition">
-             <enum>QSlider::TicksBothSides</enum>
-            </property>
-            <property name="tickInterval">
+            <property name="value">
              <number>1</number>
             </property>
-           </widget>
-          </item>
-          <item row="0" column="2">
-           <spacer name="horizontalSpacer">
             <property name="orientation">
              <enum>Qt::Horizontal</enum>
             </property>
-            <property name="sizeHint" stdset="0">
-             <size>
-              <width>40</width>
-              <height>20</height>
-             </size>
-            </property>
-           </spacer>
-          </item>
-         </layout>
-        </item>
-        <item row="1" column="0">
-         <layout class="QGridLayout" name="gridLayout_4">
-          <item row="0" column="1">
-           <widget class="QPushButton" name="pushButton">
-            <property name="text">
-             <string>Show all Spectra</string>
-            </property>
            </widget>
-          </item>
-          <item row="1" column="0" colspan="2">
-           <widget class="PlotWidget" name="component_view">
-            <property name="sizeAdjustPolicy">
-             <enum>QAbstractScrollArea::AdjustToContents</enum>
-            </property>
-           </widget>
-          </item>
-          <item row="0" column="0">
-           <widget class="QLabel" name="label_2">
-            <property name="styleSheet">
-             <string notr="true">font: 75 12pt &quot;MS Shell Dlg 2&quot;;</string>
-            </property>
-            <property name="text">
-             <string>Component Spectra</string>
-            </property>
-            <property name="alignment">
-             <set>Qt::AlignCenter</set>
-            </property>
-           </widget>
-          </item>
-          <item row="0" column="2">
-           <spacer name="horizontalSpacer_2">
-            <property name="orientation">
-             <enum>Qt::Horizontal</enum>
-            </property>
-            <property name="sizeType">
-             <enum>QSizePolicy::Minimum</enum>
-            </property>
-            <property name="sizeHint" stdset="0">
-             <size>
-              <width>40</width>
-              <height>20</height>
-             </size>
-            </property>
-           </spacer>
-          </item>
-         </layout>
-        </item>
-       </layout>
-      </item>
-      <item row="0" column="0">
-       <layout class="QGridLayout" name="gridLayout_5">
-        <item row="0" column="0">
-         <layout class="QGridLayout" name="gridLayout_3">
-          <item row="0" column="0">
-           <widget class="QLabel" name="label_4">
-            <property name="styleSheet">
-             <string notr="true">font: 14pt &quot;MS Shell Dlg 2&quot;;</string>
-            </property>
-            <property name="text">
-             <string>Nth Cluster</string>
-            </property>
-            <property name="alignment">
-             <set>Qt::AlignCenter</set>
-            </property>
-           </widget>
-          </item>
-          <item row="1" column="0">
-           <widget class="ImageView" name="image_view"/>
           </item>
          </layout>
         </item>
@@ -159,7 +79,7 @@
              <string notr="true">font: 14pt &quot;MS Shell Dlg 2&quot;;</string>
             </property>
             <property name="text">
-             <string>Cluster Map</string>
+             <string>Cluster Masks</string>
             </property>
             <property name="alignment">
              <set>Qt::AlignCenter</set>
@@ -168,6 +88,61 @@
           </item>
           <item row="1" column="0">
            <widget class="ImageView" name="cluster_view"/>
+          </item>
+         </layout>
+        </item>
+       </layout>
+      </item>
+      <item row="1" column="0">
+       <layout class="QGridLayout" name="gridLayout_6">
+        <item row="0" column="0">
+         <layout class="QGridLayout" name="gridLayout_4">
+          <property name="leftMargin">
+           <number>100</number>
+          </property>
+          <property name="rightMargin">
+           <number>100</number>
+          </property>
+          <item row="0" column="0">
+           <layout class="QGridLayout" name="gridLayout_2">
+            <item row="0" column="0">
+             <widget class="QLabel" name="label_2">
+              <property name="styleSheet">
+               <string notr="true">font: 75 12pt &quot;MS Shell Dlg 2&quot;;</string>
+              </property>
+              <property name="text">
+               <string>Component Spectrum</string>
+              </property>
+              <property name="alignment">
+               <set>Qt::AlignCenter</set>
+              </property>
+             </widget>
+            </item>
+            <item row="0" column="1">
+             <widget class="QPushButton" name="pb_show_all_spec">
+              <property name="sizePolicy">
+               <sizepolicy hsizetype="Fixed" vsizetype="Fixed">
+                <horstretch>0</horstretch>
+                <verstretch>0</verstretch>
+               </sizepolicy>
+              </property>
+              <property name="styleSheet">
+               <string notr="true">font: 12pt &quot;MS Shell Dlg 2&quot;;
+background-color: rgb(175, 236, 255);</string>
+              </property>
+              <property name="text">
+               <string>Show all Spectra</string>
+              </property>
+             </widget>
+            </item>
+           </layout>
+          </item>
+          <item row="1" column="0">
+           <widget class="PlotWidget" name="component_view">
+            <property name="sizeAdjustPolicy">
+             <enum>QAbstractScrollArea::AdjustToContents</enum>
+            </property>
+           </widget>
           </item>
          </layout>
         </item>
@@ -192,7 +167,13 @@
     </property>
     <addaction name="actionSave"/>
    </widget>
+   <widget class="QMenu" name="menuHelp">
+    <property name="title">
+     <string>Help</string>
+    </property>
+   </widget>
    <addaction name="menuFile"/>
+   <addaction name="menuHelp"/>
   </widget>
   <widget class="QStatusBar" name="statusbar"/>
   <action name="actionSave">

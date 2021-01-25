@@ -30,6 +30,7 @@ def get_xrf_data( h='h5file'):
 
 
 def remove_nan_inf(im):
+    im = np.array(im, dtype = np.float32)
     im[im < 0] = 0
     im[np.isnan(im)] = 0
     im[np.isinf(im)] = 0
@@ -364,6 +365,7 @@ def interploate_E(refs, e):
 def xanes_fitting(im_stack, e_list, refs, method='NNLS'):
     new_image = im_stack.transpose(2, 1, 0)
     x, y, z = np.shape(new_image)
+
     refs = (interploate_E(refs, e_list)).T
 
     if refs.ndim == 1:
