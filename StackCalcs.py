@@ -8,15 +8,42 @@ import matplotlib.pyplot as plt
 import h5py
 import logging
 from scipy.signal import savgol_filter
+
 logger = logging.getLogger()
 
-def get_xrf_data( h='h5file'):
-    f = h5py.File(h, 'r')
-    try:
-        xrf_stack = f['xrfmap/detsum/counts'][:,:,:]
 
-    except:
-        xrf_stack = f['xrmmap/mcasum/counts'][:,:,:]
+def get_xrf_data(h='h5file'):
+    global norm_xrf_stack, beamline
+    f = h5py.File(h, 'r')
+
+    if list(f.keys())[0] == 'xrfmap':
+        logger.info('Data from HXN/TES/SRX')
+        beamline = f['xrfmap/scan_metadata'].attrs['scan_instrument_id']
+
+        try:
+
+            beamline_scalar = {'HXN': 2, 'SRX': 0, 'TES': 0}
+
+            if beamline in beamline_scalar.keys():
+
+                Io = np.array(f['xrfmap/scalers/val'])[:, :, beamline_scalar[beamline]]
+                raw_xrf_stack = np.array(f['xrfmap/detsum/counts'])
+                norm_xrf_stack = raw_xrf_stack / Io[:, :, np.newaxis]
+            else:
+                logger.error('Unknown Beamline Scalar')
+        except:
+            logger.warning('Unknown Scalar: Raw Detector count in use')
+            norm_xrf_stack = np.array(f['xrfmap/detsum/counts'])
+
+    elif list(f.keys())[0] == 'xrmmap':
+        logger.info('Data from XFM')
+        beamline = 'XFM'
+        raw_xrf_stack = np.array(f['xrmmap/mcasum/counts'])
+        Io = np.array(f['xrmmap/scalars/I0'])
+        norm_xrf_stack = raw_xrf_stack / Io[:, :, np.newaxis]
+
+    else:
+        logger.error('Unknown Data Format')
 
     try:
         mono_e = int(f['xrfmap/scan_metadata'].attrs['instrument_mono_incident_energy'] * 1000)
@@ -24,17 +51,26 @@ def get_xrf_data( h='h5file'):
 
     except:
         mono_e = 12000
-        logger.info("Unable to get Excitation energy from the h5 data; using default value = 12 KeV ")
+        logger.info(f'Unable to get Excitation energy from the h5 data; using default value {mono_e} KeV')
 
-    return remove_nan_inf(xrf_stack), mono_e
+    return remove_nan_inf(norm_xrf_stack), mono_e + 1000, beamline
 
 
 def remove_nan_inf(im):
-    im = np.array(im, dtype = np.float32)
-    im[im < 0] = 0
+    im = np.array(im, dtype=np.float32)
     im[np.isnan(im)] = 0
     im[np.isinf(im)] = 0
     return im
+
+
+def rebin_image(im, bin_factor):
+    arrx, arry = np.shape(im)
+    if arrx / bin_factor != int or arrx / bin_factor != int:
+        logger.error('Invalid Binning')
+
+    else:
+        shape = (arrx / bin_factor, arry / bin_factor)
+        return im.reshape(shape).mean(-1).mean(1)
 
 
 def remove_hot_pixels(image_array, NSigma=5):
@@ -81,7 +117,7 @@ def normalize(image_array, norm_point=-1):
 
 
 def remove_edges(image_array):
-    #z, x, y = np.shape(image_array)
+    # z, x, y = np.shape(image_array)
     return image_array[:, 1:- 1, 1:- 1]
 
 
@@ -130,6 +166,7 @@ def background1(img_stack):
     v = np.gradient(img_v)
     bg = np.min([img_h[h == h.max()], img_v[v == v.max()]])
     return bg
+
 
 def get_sum_spectra(image_array):
     spec = np.sum(np.sum(image_array, axis=1), axis=1)
@@ -184,6 +221,7 @@ def clean_stack(img_stack, auto_bg=False, bg_percentage=5):
 
     return bged_img_stack
 
+
 def classify(img_stack, correlation='Pearson'):
     img_stack_ = img_stack
     a, b, c = np.shape(img_stack_)
@@ -204,17 +242,19 @@ def classify(img_stack, correlation='Pearson'):
     cluster_image = np.reshape(corr, (b, c))
     return (cluster_image ** 3), img_stack_
 
-def correlation_kmeans(img_stack,n_clusters, correlation = 'Pearson'):
+
+def correlation_kmeans(img_stack, n_clusters, correlation='Pearson'):
     img, bg_image = classify(img_stack, correlation)
     img[np.isnan(img)] = -99999
-    X = img.reshape((-1,1))
+    X = img.reshape((-1, 1))
     k_means = sc.KMeans(n_clusters)
     k_means.fit(X)
 
     X_cluster = k_means.labels_
-    X_cluster = X_cluster.reshape(img.shape)+1
+    X_cluster = X_cluster.reshape(img.shape) + 1
 
     return X_cluster
+
 
 def cluster_stack(im_array, method='KMeans', n_clusters_=4, decomposed=False, decompose_method='PCA',
                   decompose_comp=2):
@@ -222,7 +262,7 @@ def cluster_stack(im_array, method='KMeans', n_clusters_=4, decomposed=False, de
 
     if method == 'Correlation-Kmeans':
 
-        X_cluster = correlation_kmeans(im_array,n_clusters_, correlation = 'Pearson')
+        X_cluster = correlation_kmeans(im_array, n_clusters_, correlation='Pearson')
 
     else:
 
@@ -233,7 +273,6 @@ def cluster_stack(im_array, method='KMeans', n_clusters_=4, decomposed=False, de
         if decomposed:
             im_array = denoise_with_decomposition(im_array, method_=decompose_method,
                                                   n_components=decompose_comp)
-
 
         flat_array = np.reshape(im_array, (a, (b * c)))
         init_cluster = methods[method](n_clusters=n_clusters_)
@@ -307,11 +346,11 @@ def decompose_stack(im_stack, decompose_method='PCA', n_components_=3):
         spec_i = ((new_image.T * f).sum(1)).sum(1)
         decon_spetra[:, i] = spec_i
 
-        f[f>0] = i+1
+        f[f > 0] = i + 1
         decom_map[i] = f
     decom_map = decom_map.sum(0)
 
-    return np.float32(ims), spcs, decon_spetra,decom_map
+    return np.float32(ims), spcs, decon_spetra, decom_map
 
 
 def denoise_with_decomposition(img_stack, method_='PCA', n_components=4):
@@ -338,18 +377,6 @@ def denoise_with_decomposition(img_stack, method_='PCA', n_components=4):
     # plt.show()
     return remove_nan_inf(filtered)
 
-
-def plot_xanes_refs(ref):
-    plt.figure()
-    e = ref[:, 0]
-    for i in range(min(ref.shape)):
-        if i > 0:
-            plt.plot(e, ref[:, i])
-    plt.title("Reference Standards")
-    plt.xlabel("Energy")
-    plt.show()
-
-
 def interploate_E(refs, e):
     n = np.shape(refs)[1]
     refs = np.array(refs)
@@ -363,6 +390,7 @@ def interploate_E(refs, e):
 
 
 def xanes_fitting(im_stack, e_list, refs, method='NNLS'):
+    """Linear combination fit of image data with reference standards"""
     new_image = im_stack.transpose(2, 1, 0)
     x, y, z = np.shape(new_image)
 
@@ -389,7 +417,21 @@ def xanes_fitting(im_stack, e_list, refs, method='NNLS'):
     return map
 
 
-# TODO make xanes plots interactive
+def create_df_from_nor(athenafile='fe_refs.nor'):
+    """create pandas dataframe from athena nor file, first column
+    is energy and headers are sample names"""
+
+    refs = np.loadtxt(athenafile)
+    n_refs = refs.shape[-1]
+    skip_raw_n = n_refs+6
+
+    df = pd.read_table(athenafile, delim_whitespace=True, skiprows=skip_raw_n,
+                       header=None, usecols=np.arange(0, n_refs))
+    df2 = pd.read_table(athenafile, delim_whitespace=True, skiprows=skip_raw_n-1,
+                        usecols=np.arange(0, n_refs + 1))
+    new_col = df2.columns.drop('#')
+    df.columns = new_col
+    return df, list(new_col)
 
 
 def align_iter(image_array, ref_stack, reference='previous', num_ter=1):

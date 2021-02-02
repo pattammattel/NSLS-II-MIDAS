@@ -1,10 +1,9 @@
-from PyQt5.QtWidgets import (QWidget, QSlider, QHBoxLayout,
-                             QLabel, QApplication)
-from PyQt5.QtCore import Qt
-from PyQt5.QtGui import QPixmap
-import sys
+from StackCalcs import *
+from RefChooser import *
+dff,col_name = create_df_from_nor(athenafile='marked2.nor')
 
+elist = np.loadtxt('Site4um.txt')
 
-energy = []
+#new_ref = interploate_E(dff.values,elist.values)
 
-print(len(energy))
+print((pd.DataFrame(elist)).values)
