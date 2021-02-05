@@ -50,7 +50,7 @@ class MaskSpecViewer(QtWidgets.QMainWindow):
         self.xrf_view.setImage(self.xrf_map)
         self.xrf_view.ui.menuBtn.hide()
         self.xrf_view.ui.roiBtn.hide()
-        self.xrf_view.setPredefinedGradient('bipolar')
+        self.xrf_view.setPredefinedGradient('viridis')
 
         self.mask_view.ui.menuBtn.hide()
         self.mask_view.ui.roiBtn.hide()

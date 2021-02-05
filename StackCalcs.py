@@ -435,6 +435,21 @@ def create_df_from_nor(athenafile='fe_refs.nor'):
     return df, list(new_col)
 
 
+def create_df_from_nor_try2(athenafile='fe_refs.nor'):
+    """create pandas dataframe from athena nor file, first column
+    is energy and headers are sample names"""
+
+    refs = np.loadtxt(athenafile)
+    n_refs = refs.shape[-1]
+    df_refs = pd.DataFrame(refs)
+
+    df = pd.read_csv(athenafile, header=None)
+    new_col = list((str(df.iloc[n_refs + 5].values)).split(' ')[2::2])
+    df_refs.columns = new_col
+
+    return df_refs, list(new_col)
+
+
 def energy_from_logfile(logfile = 'maps_log_tiff.txt'):
     df = pd.read_csv(logfile, header= None, delim_whitespace=True, skiprows=9)
     return df[9][df[7]=='energy'].values.astype(float)

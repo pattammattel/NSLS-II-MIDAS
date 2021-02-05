@@ -405,6 +405,35 @@ class midasWindow(QtWidgets.QMainWindow):
             logger.error('No file selected')
             pass
 
+    def select_ref_file(self):
+        self.ref_names = []
+        file_name = QFileDialog().getOpenFileName(self, "Open reference file", '', 'text file (*.txt *.nor)')
+        try:
+            if file_name[0].endswith('.nor'):
+                self.refs, self.ref_names = create_df_from_nor_try2(athenafile=str(file_name[0]))
+                self.change_color_on_load(self.pb_ref_xanes)
+
+            elif file_name[0].endswith('.txt'):
+                self.refs = pd.read_csv(str(file_name[0]), header = None, delim_whitespace=True)
+                self.change_color_on_load(self.pb_ref_xanes)
+
+            self.plt_xanes_refs()
+
+        except OSError:
+            logger.error('No file selected')
+            pass
+
+        except:
+            logger.error('Unsupported file format')
+            pass
+
+    def plt_xanes_refs(self):
+        plt.figure()
+        plt.plot(self.refs.values[:, 0], self.refs.values[:, 1:])
+        plt.title("Reference Standards")
+        plt.xlabel("Energy")
+        plt.show()
+
     def math_roi_flag(self):
         if self.rb_math_roi.isChecked():
             self.rb_math_roi.setStyleSheet("color : green")
@@ -572,35 +601,6 @@ class midasWindow(QtWidgets.QMainWindow):
         self._new_window4.show()
 
         logger.info('Process complete')
-
-    def select_ref_file(self):
-        self.ref_names = []
-        file_name = QFileDialog().getOpenFileName(self, "Open reference file", '', 'text file (*.txt *.nor)')
-        try:
-            if file_name[0].endswith('.nor'):
-                self.refs, self.ref_names = create_df_from_nor(athenafile=str(file_name[0]))
-                self.change_color_on_load(self.pb_ref_xanes)
-
-            elif file_name[0].endswith('.txt'):
-                self.refs = pd.read_csv(str(file_name[0]), header = None, delim_whitespace=True)
-                self.change_color_on_load(self.pb_ref_xanes)
-
-            self.plt_xanes_refs()
-
-        except OSError:
-            logger.error('No file selected')
-            pass
-
-        except:
-            logger.error('Unsupported file format')
-            pass
-
-    def plt_xanes_refs(self):
-        plt.figure()
-        plt.plot(self.refs.values[:, 0], self.refs.values[:, 1:])
-        plt.title("Reference Standards")
-        plt.xlabel("Energy")
-        plt.show()
 
     def change_color_on_load(self, button_name):
         button_name.setStyleSheet("background-color : green")
