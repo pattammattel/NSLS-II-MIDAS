@@ -14,7 +14,7 @@
    <cursorShape>ArrowCursor</cursorShape>
   </property>
   <property name="windowTitle">
-   <string>MainWindow</string>
+   <string>Select References</string>
   </property>
   <property name="styleSheet">
    <string notr="true">font: 10pt &quot;MS Shell Dlg 2&quot;;</string>

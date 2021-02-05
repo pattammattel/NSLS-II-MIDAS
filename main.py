@@ -10,6 +10,7 @@ from PyQt5.QtWidgets import QMessageBox, QFileDialog, QDesktopWidget, QApplicati
 
 from StackPlot import *
 from StackCalcs import *
+from MaskView import *
 
 logger = logging.getLogger()
 
@@ -29,6 +30,9 @@ class midasWindow(QtWidgets.QMainWindow):
         self.actionExit.triggered.connect(self.close)
         self.actionOpen_in_GitHub.triggered.connect(self.open_github_link)
         self.actionLoad_Energy.triggered.connect(self.select_elist)
+        self.menuFile.setToolTipsVisible(True)
+
+        self.actionOpen_Mask_Gen.triggered.connect(self.openMaskMaker)
 
         self.cb_transpose.stateChanged.connect(self.transpose_stack)
         self.cb_log.stateChanged.connect(self.replot_image)
@@ -77,7 +81,14 @@ class midasWindow(QtWidgets.QMainWindow):
         file_name = QFileDialog()
         file_name.setFileMode(QFileDialog.ExistingFiles)
         names = file_name.getOpenFileNames(self, "Open files", " ", filter)
-        print(names)
+
+        all_images = []
+        for im_file in names[0]:
+            img = tf.imread(im_file)
+            all_images.append(img)
+        self.stack_ = np.dstack(all_images)
+        self.sb_zrange2.setValue(self.stack_.shape[-1])
+        self.set_stack_params()
 
     def load_stack(self):
         self.sb_zrange2.setMaximum(100000)
@@ -133,7 +144,13 @@ class midasWindow(QtWidgets.QMainWindow):
             pass
 
         logger.info(f'completed image shape {np.shape(self.im_stack)}')
-        self.statusbar_main.showMessage(f'Loaded: {self.file_name}')
+
+        try:
+            self.statusbar_main.showMessage(f'Loaded: {self.file_name}')
+
+        except AttributeError:
+            self.statusbar_main.showMessage('New Stack is made from selected tiffs')
+            pass
 
     def reset_and_load_stack(self):
         self.rb_math_roi_img.setChecked(False)
@@ -246,8 +263,7 @@ class midasWindow(QtWidgets.QMainWindow):
         if len(self.energy) == 0:
             self.energy = np.arange(self.z1, self.z2) * 10
             logger.info("Arbitary X-axis used in the plot for XANES")
-        self.stack_center = int(self.energy[len(self.energy) // 2])
-        self.stack_width = int((self.energy.max() - self.energy.min()) * 0.05)
+
 
         # ROI settings for image, used plyline roi with non rectangular shape
         sz = np.max([int(self.dim2 * 0.1), int(self.dim3 * 0.1)])  # size of the roi set to be 10% of the image area
@@ -266,6 +282,8 @@ class midasWindow(QtWidgets.QMainWindow):
         self.image_roi_math.addTranslateHandle([sz // 2, sz // 2], [2, 2])
         self.image_view.addItem(self.image_roi)
 
+        self.stack_center = (self.energy[len(self.energy) // 2])
+        self.stack_width = (self.energy.max() - self.energy.min())//6
         self.spec_roi = pg.LinearRegionItem(values=(self.stack_center - self.stack_width,
                                                     self.stack_center + self.stack_width))
 
@@ -360,21 +378,28 @@ class midasWindow(QtWidgets.QMainWindow):
         file_name = QFileDialog().getOpenFileName(self, "Open energy list", '', 'text file (*.txt)')
 
         try:
-            self.energy = np.loadtxt(str(file_name[0]))
+
+            if str(file_name[0]).endswith('log_tiff.txt'):
+                self.energy = energy_from_logfile(logfile = str(file_name[0]))
+                logger.info("Log file from pyxrf processing")
+
+            else:
+                self.energy = np.loadtxt(str(file_name[0]))
+
             logger.info('Energy file loaded')
             if self.energy.any():
-                self.change_color_on_load(self.pb_elist_xanes)
+                    self.change_color_on_load(self.pb_elist_xanes)
 
             assert len(self.energy) == self.dim1
 
-            self.update_spectrum()
-            self.spec_roi.setRegion((self.stack_center - self.stack_width, self.stack_center + self.stack_width))
-            self.spec_roi_math.setRegion(
-                (self.stack_center - self.stack_width - 10,
-                 self.stack_center + self.stack_width - 10)
-            )
+            if self.energy.max()<100:
+                self.cb_kev_flag.setChecked(True)
+                self.energy *= 1000
 
-            self.update_image_roi()
+            else:
+                self.cb_kev_flag.setChecked(False)
+
+            self.view_stack()
 
         except OSError:
             logger.error('No file selected')
@@ -582,14 +607,12 @@ class midasWindow(QtWidgets.QMainWindow):
 
     def fast_xanes_fitting(self):
 
-        if self.cb_kev_flag.isChecked():
-            e_list1 = self.energy * 1000
-
-        else:
-            e_list1 = self.energy
-
-        self._new_window5 = XANESViewer(self.updated_stack, e_list1, self.refs, self.ref_names)
+        self._new_window5 = XANESViewer(self.updated_stack, self.xdata, self.refs, self.ref_names)
         self._new_window5.show()
+
+    def openMaskMaker(self):
+        self.mask_window = MaskSpecViewer(xanes_stack=self.updated_stack, energy=self.energy)
+        self.mask_window.show()
 
 
 if __name__ == "__main__":

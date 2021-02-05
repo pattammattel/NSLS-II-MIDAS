@@ -491,7 +491,7 @@ color: rgb(255, 0, 127);
         <rect>
          <x>0</x>
          <y>0</y>
-         <width>307</width>
+         <width>321</width>
          <height>884</height>
         </rect>
        </property>
@@ -515,8 +515,8 @@ color: rgb(255, 0, 127);
             <rect>
              <x>0</x>
              <y>0</y>
-             <width>288</width>
-             <height>300</height>
+             <width>299</width>
+             <height>321</height>
             </rect>
            </property>
            <attribute name="label">
@@ -708,6 +708,9 @@ color: rgb(255, 0, 127);
                   <verstretch>0</verstretch>
                  </sizepolicy>
                 </property>
+                <property name="toolTip">
+                 <string>Removes one column/row from all four edges</string>
+                </property>
                 <property name="text">
                  <string>Remove Edges</string>
                 </property>
@@ -720,6 +723,9 @@ color: rgb(255, 0, 127);
                   <horstretch>0</horstretch>
                   <verstretch>0</verstretch>
                  </sizepolicy>
+                </property>
+                <property name="toolTip">
+                 <string>Adjust the dimensions of the image</string>
                 </property>
                 <property name="styleSheet">
                  <string notr="true">background-color: rgb(175, 236, 255);
@@ -740,8 +746,8 @@ color: rgb(255, 0, 127);
             <rect>
              <x>0</x>
              <y>0</y>
-             <width>285</width>
-             <height>408</height>
+             <width>299</width>
+             <height>404</height>
             </rect>
            </property>
            <attribute name="label">
@@ -948,6 +954,9 @@ color: rgb(255, 0, 127);
                  <layout class="QGridLayout" name="gridLayout_28">
                   <item row="0" column="0">
                    <widget class="QCheckBox" name="cb_log">
+                    <property name="toolTip">
+                     <string>Covert image dat to log values.</string>
+                    </property>
                     <property name="styleSheet">
                      <string notr="true"/>
                     </property>
@@ -961,6 +970,9 @@ color: rgb(255, 0, 127);
                   </item>
                   <item row="0" column="1">
                    <widget class="QCheckBox" name="cb_transpose">
+                    <property name="toolTip">
+                     <string>Reverse the arrays. 012 will be 210</string>
+                    </property>
                     <property name="layoutDirection">
                      <enum>Qt::LeftToRight</enum>
                     </property>
@@ -1019,6 +1031,9 @@ color: rgb(255, 0, 127);
                   </item>
                   <item row="1" column="1">
                    <widget class="QCheckBox" name="cb_norm">
+                    <property name="toolTip">
+                     <string>Intensity Normalization with the last Frame.</string>
+                    </property>
                     <property name="text">
                      <string>Normalize</string>
                     </property>
@@ -1069,14 +1084,14 @@ color: rgb(255, 0, 127);
         <item row="3" column="0">
          <widget class="QToolBox" name="toolBox_2">
           <property name="currentIndex">
-           <number>0</number>
+           <number>2</number>
           </property>
           <widget class="QWidget" name="page_5">
            <property name="geometry">
             <rect>
              <x>0</x>
              <y>0</y>
-             <width>285</width>
+             <width>299</width>
              <height>189</height>
             </rect>
            </property>
@@ -1214,8 +1229,8 @@ color: rgb(255, 0, 127);
             <rect>
              <x>0</x>
              <y>0</y>
-             <width>292</width>
-             <height>168</height>
+             <width>299</width>
+             <height>189</height>
             </rect>
            </property>
            <attribute name="label">
@@ -1339,8 +1354,8 @@ color: rgb(255, 0, 127);
             <rect>
              <x>0</x>
              <y>0</y>
-             <width>285</width>
-             <height>196</height>
+             <width>299</width>
+             <height>193</height>
             </rect>
            </property>
            <attribute name="label">
@@ -1481,6 +1496,7 @@ color: rgb(255, 0, 127);
     <addaction name="actionOpen_Image_Data"/>
     <addaction name="actionOpen_Multiple_Files"/>
     <addaction name="actionLoad_Energy"/>
+    <addaction name="actionSave_Energy_List"/>
     <addaction name="actionSave_as"/>
     <addaction name="actionExit"/>
    </widget>
@@ -1489,6 +1505,7 @@ color: rgb(255, 0, 127);
      <string>Tools</string>
     </property>
     <addaction name="actionOpen_Mask_Gen"/>
+    <addaction name="actionAlign_Stack"/>
    </widget>
    <addaction name="menuFile"/>
    <addaction name="menuMask"/>
@@ -1508,6 +1525,9 @@ color: rgb(255, 0, 127);
   <action name="actionOpen_Image_Data">
    <property name="text">
     <string>Open Image Data</string>
+   </property>
+   <property name="toolTip">
+    <string>Support all tiff and specific h5 files</string>
    </property>
    <property name="shortcut">
     <string>Ctrl+O</string>
@@ -1529,6 +1549,9 @@ color: rgb(255, 0, 127);
   <action name="actionSave_as">
    <property name="text">
     <string>Export Tiff Stack</string>
+   </property>
+   <property name="toolTip">
+    <string>Save the displayed/Modified stack as a tiff file</string>
    </property>
    <property name="shortcut">
     <string>Ctrl+S</string>
@@ -1573,6 +1596,9 @@ color: rgb(255, 0, 127);
    <property name="text">
     <string>Load Energy</string>
    </property>
+   <property name="toolTip">
+    <string>Load list of energies for XANES stack. Supports only .txt fromat</string>
+   </property>
    <property name="shortcut">
     <string>Ctrl+E</string>
    </property>
@@ -1581,10 +1607,37 @@ color: rgb(255, 0, 127);
    <property name="text">
     <string>Open Multiple Files</string>
    </property>
+   <property name="toolTip">
+    <string>Create a stack from multiple tiff images of same shape</string>
+   </property>
+   <property name="shortcut">
+    <string>Ctrl+M</string>
+   </property>
   </action>
   <action name="actionOpen_Mask_Gen">
    <property name="text">
     <string>Open Mask Generator</string>
+   </property>
+   <property name="toolTip">
+    <string>A new window will be opened to creat threshold based masks</string>
+   </property>
+  </action>
+  <action name="actionCreate_elist_from_log">
+   <property name="text">
+    <string>Create elist from log file</string>
+   </property>
+  </action>
+  <action name="actionSave_Energy_List">
+   <property name="text">
+    <string>Save Energy List</string>
+   </property>
+  </action>
+  <action name="actionAlign_Stack">
+   <property name="text">
+    <string>Align Stack</string>
+   </property>
+   <property name="toolTip">
+    <string>A new window will be opened to align images in a stack</string>
    </property>
   </action>
  </widget>

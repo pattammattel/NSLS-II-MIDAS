@@ -377,6 +377,7 @@ def denoise_with_decomposition(img_stack, method_='PCA', n_components=4):
     # plt.show()
     return remove_nan_inf(filtered)
 
+
 def interploate_E(refs, e):
     n = np.shape(refs)[1]
     refs = np.array(refs)
@@ -432,6 +433,11 @@ def create_df_from_nor(athenafile='fe_refs.nor'):
     new_col = df2.columns.drop('#')
     df.columns = new_col
     return df, list(new_col)
+
+
+def energy_from_logfile(logfile = 'maps_log_tiff.txt'):
+    df = pd.read_csv(logfile, header= None, delim_whitespace=True, skiprows=9)
+    return df[9][df[7]=='energy'].values.astype(float)
 
 
 def align_iter(image_array, ref_stack, reference='previous', num_ter=1):

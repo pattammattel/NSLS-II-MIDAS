@@ -79,6 +79,7 @@ class ComponentViewer(QtWidgets.QMainWindow):
 
     # add energy column
 
+
 class ClusterViewer(QtWidgets.QMainWindow):
 
     def __init__(self, decon_images, energy, X_cluster, decon_spectra):
@@ -124,6 +125,7 @@ class ClusterViewer(QtWidgets.QMainWindow):
         tf.imsave(str(file_name[0]) + '_cluster.tiff', np.float32(self.decon_images.transpose(0, 2, 1)), imagej=True)
         tf.imsave(str(file_name[0]) + '_cluster_map.tiff', np.float32(self.X_cluster.T),imagej=True)
         np.savetxt(str(file_name[0]) + '_deconv_spec.txt', self.decon_spectra)
+
 
 class XANESViewer(QtWidgets.QMainWindow):
 
@@ -277,6 +279,7 @@ class XANESViewer(QtWidgets.QMainWindow):
 
     '''
 
+
 class RefChooser(QtWidgets.QMainWindow):
     signal: pyqtSignal = QtCore.pyqtSignal(list)
 
@@ -298,6 +301,7 @@ class RefChooser(QtWidgets.QMainWindow):
             self.all_boxes.append(self.cb_i)
 
         self.pb_apply = QtWidgets.QPushButton(self.centralwidget)
+        self.pb_apply.setSizePolicy(QtWidgets.QSizePolicy.Fixed,QtWidgets.QSizePolicy.Fixed)
         self.pb_apply.setText("Apply")
         self.gridLayout.addWidget(self.pb_apply, len(self.ref_names) + 1, 0, 1, 1)
         self.pb_apply.setEnabled(False)
