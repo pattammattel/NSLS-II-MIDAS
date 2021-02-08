@@ -13,7 +13,7 @@ logger = logging.getLogger()
 
 
 def get_xrf_data(h='h5file'):
-    global norm_xrf_stack, beamline
+
     f = h5py.File(h, 'r')
 
     if list(f.keys())[0] == 'xrfmap':
@@ -29,6 +29,7 @@ def get_xrf_data(h='h5file'):
                 Io = np.array(f['xrfmap/scalers/val'])[:, :, beamline_scalar[beamline]]
                 raw_xrf_stack = np.array(f['xrfmap/detsum/counts'])
                 norm_xrf_stack = raw_xrf_stack / Io[:, :, np.newaxis]
+                Io_avg = int(remove_nan_inf(Io).mean())
             else:
                 logger.error('Unknown Beamline Scalar')
         except:
@@ -41,6 +42,7 @@ def get_xrf_data(h='h5file'):
         raw_xrf_stack = np.array(f['xrmmap/mcasum/counts'])
         Io = np.array(f['xrmmap/scalars/I0'])
         norm_xrf_stack = raw_xrf_stack / Io[:, :, np.newaxis]
+        Io_avg = int(remove_nan_inf(Io).mean())
 
     else:
         logger.error('Unknown Data Format')
@@ -53,7 +55,7 @@ def get_xrf_data(h='h5file'):
         mono_e = 12000
         logger.info(f'Unable to get Excitation energy from the h5 data; using default value {mono_e} KeV')
 
-    return remove_nan_inf(norm_xrf_stack), mono_e + 1000, beamline
+    return remove_nan_inf(norm_xrf_stack), mono_e + 1000, beamline, Io_avg
 
 
 def remove_nan_inf(im):

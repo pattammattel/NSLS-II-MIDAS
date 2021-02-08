@@ -23,6 +23,7 @@ class midasWindow(QtWidgets.QMainWindow):
         self.updated_stack = self.im_stack
         self.energy = energy
         self.refs = refs
+        self.log_warning=0
 
         self.actionOpen_Image_Data.triggered.connect(self.browse_file)
         self.actionOpen_Multiple_Files.triggered.connect(self.load_mutliple_file)
@@ -49,7 +50,6 @@ class midasWindow(QtWidgets.QMainWindow):
         self.pb_crop.clicked.connect(self.view_stack)
         self.pb_ref_xanes.clicked.connect(self.select_ref_file)
         self.pb_elist_xanes.clicked.connect(self.select_elist)
-        self.pb_set_spec_roi.clicked.connect(self.set_spec_roi)
 
         # save_options
         self.pb_save_disp_img.clicked.connect(self.save_disp_img)
@@ -63,9 +63,6 @@ class midasWindow(QtWidgets.QMainWindow):
         self.pb_xanes_fit.clicked.connect(self.fast_xanes_fitting)
         self.pb_plot_refs.clicked.connect(self.plt_xanes_refs)
         self.show()
-
-    def open_github_link(self):
-        webbrowser.open('https://github.com/pattammattel/NSLS-II-MIDAS')
 
     def browse_file(self):
         filename = QFileDialog().getOpenFileName(self, "Select image data", '', 'image file(*.hdf *.h5 *tiff *tif )')
@@ -97,13 +94,14 @@ class midasWindow(QtWidgets.QMainWindow):
         self.statusbar_main.showMessage('Loading.. please wait...')
 
         if self.file_name.endswith('.h5'):
-            self.stack_, mono_e, bl_name = get_xrf_data(self.file_name)
+            self.stack_, mono_e, bl_name, self.avgIo = get_xrf_data(self.file_name)
             self.statusbar_main.showMessage(f'Data from {bl_name}')
             self.sb_zrange2.setValue(mono_e / 10)
 
         elif self.file_name.endswith('.tiff') or self.file_name.endswith('.tif'):
             self.stack_ = tf.imread(self.file_name).transpose(1, 2, 0)
             self.sb_zrange2.setValue(self.stack_.shape[-1])
+            self.avgIo = 1
 
         else:
             logger.error('Unknown data format')
@@ -132,6 +130,12 @@ class midasWindow(QtWidgets.QMainWindow):
             logger.error('No file selected')
             pass
 
+        self.energy = []
+        self.view_stack()
+        logger.info("Stack displayed correctly")
+        self.update_stack_info()
+
+        '''
         try:
             self.energy = []
             self.view_stack()
@@ -142,7 +146,7 @@ class midasWindow(QtWidgets.QMainWindow):
             logger.error("Trouble with stack display")
             self.statusbar_main.showMessage("Error: Trouble with stack display")
             pass
-
+        '''
         logger.info(f'completed image shape {np.shape(self.im_stack)}')
 
         try:
@@ -219,7 +223,32 @@ class midasWindow(QtWidgets.QMainWindow):
             self.hs_bg_threshold.setEnabled(False)
 
         if self.cb_log.isChecked():
-            self.updated_stack = remove_nan_inf(np.log(self.updated_stack))
+
+            if self.avgIo !=1:
+
+                self.updated_stack = remove_nan_inf(np.log10(self.updated_stack * self.avgIo))
+
+                '''
+                self.logMsgBox = QMessageBox()
+                self.logMsgBox.setIcon(QMessageBox.Warning)
+                self.logMsgBox.setText(f'Data is multiplied with average I0 value: {self.avgIo} '
+                                       f'\n before taking log to avoid negative peaks')
+                self.logMsgBox.setWindowTitle("Log data Warning")
+                self.logMsgBox.setStandardButtons(QMessageBox.Ok)
+
+                if self.logMsgBox.exec() == QMessageBox.Ok:
+                    self.updated_stack = remove_nan_inf(np.log10(self.updated_stack * self.avgIo))
+
+
+                elif self.logMsgBox.exec() == QtGui.QMessageBox.YesRole:
+                    self.log_warning = 1
+                    self.updated_stack = remove_nan_inf(np.log10(self.updated_stack * self.avgIo))
+                '''
+
+
+
+
+
             logger.info('Log Stack is in use')
 
         if self.cb_smooth.isChecked():
@@ -264,26 +293,25 @@ class midasWindow(QtWidgets.QMainWindow):
             self.energy = np.arange(self.z1, self.z2) * 10
             logger.info("Arbitary X-axis used in the plot for XANES")
 
-
         # ROI settings for image, used plyline roi with non rectangular shape
-        sz = np.max([int(self.dim2 * 0.1), int(self.dim3 * 0.1)])  # size of the roi set to be 10% of the image area
-        self.image_roi = pg.PolyLineROI([[0, 0], [0, sz], [sz, sz], [sz, 0]],
+        self.sz = np.max([int(self.dim2 * 0.1), int(self.dim3 * 0.1)])  # size of the roi set to be 10% of the image area
+        self.image_roi = pg.PolyLineROI([[0, 0], [0, self.sz], [self.sz, self.sz], [self.sz, 0]],
                                         pos=(int(self.dim3 // 2), int(self.dim2 // 2)),
                                         maxBounds=QtCore.QRect(0, 0, self.dim3, self.dim2),
-                                        closed=True)
+                                        closed=True,removable = True)
         logger.info("Image ROI Added")
 
         # a second optional ROI for calculations follow
-        self.image_roi_math = pg.PolyLineROI([[0, 0], [0, sz], [sz, sz], [sz, 0]],
+        self.image_roi_math = pg.PolyLineROI([[0, 0], [0, self.sz], [self.sz, self.sz], [self.sz, 0]],
                                              pos=(int(self.dim3 // 3), int(self.dim2 // 3)),
-                                             pen='r', closed=True)
+                                             pen='r', closed=True,removable = True)
 
-        self.image_roi.addTranslateHandle([sz // 2, sz // 2], [2, 2])
-        self.image_roi_math.addTranslateHandle([sz // 2, sz // 2], [2, 2])
+        self.image_roi.addTranslateHandle([self.sz // 2, self.sz // 2], [2, 2])
+        self.image_roi_math.addTranslateHandle([self.sz // 2, self.sz // 2], [2, 2])
         self.image_view.addItem(self.image_roi)
 
         self.stack_center = (self.energy[len(self.energy) // 2])
-        self.stack_width = (self.energy.max() - self.energy.min())//6
+        self.stack_width = (self.energy.max() - self.energy.min()) // 10
         self.spec_roi = pg.LinearRegionItem(values=(self.stack_center - self.stack_width,
                                                     self.stack_center + self.stack_width))
 
@@ -297,14 +325,35 @@ class midasWindow(QtWidgets.QMainWindow):
         self.update_image_roi()
 
         # connections
+        self.image_view.mousePressEvent = self.getPointSpectrum
         self.spec_roi.sigRegionChanged.connect(self.update_image_roi)
         self.image_roi.sigRegionChanged.connect(self.update_spectrum)
-        self.sb_roi_spec_s.valueChanged.connect(self.set_spec_roi)
-        self.sb_roi_spec_e.valueChanged.connect(self.set_spec_roi)
         self.spec_roi_math.sigRegionChangeFinished.connect(self.spec_roi_calc)
         self.rb_math_roi.clicked.connect(self.update_spectrum)
         self.rb_math_roi_img.clicked.connect(self.math_img_roi_flag)
         self.image_roi_math.sigRegionChanged.connect(self.image_roi_calc)
+
+    def getPointSpectrum(self, event):
+
+        if event.button() == QtCore.Qt.LeftButton:
+            self.xpixel = int(self.image_view.view.mapSceneToView(event.pos()).x())-1
+            zlim, xlim, ylim = self.updated_stack.shape
+
+            if self.xpixel > xlim:
+                self.xpixel = xlim
+
+            self.ypixel  = int(self.image_view.view.mapSceneToView(event.pos()).y())-1
+            if self.ypixel > ylim:
+                self.ypixel = ylim
+
+            self.spectrum_view.addLegend()
+            self.mean_spectra = self.updated_stack[:,self.xpixel,self.ypixel]
+            self.spectrum_view.plot(self.xdata, self.mean_spectra, clear=True,
+                                    name = f'x= {self.xpixel}, y= {self.ypixel}')
+
+
+            self.statusbar_main.showMessage(f'{self.xpixel} and {self.ypixel}')
+
 
     def replot_image(self):
         self.update_stack()
@@ -316,20 +365,29 @@ class midasWindow(QtWidgets.QMainWindow):
         self.stack_width = int((self.energy.max() - self.energy.min()) * 0.05)
         self.spec_roi.setBounds([self.xdata[0], self.xdata[-1]])  # if want to set bounds for the spec roi
         self.spec_roi_math.setBounds([self.xdata[0], self.xdata[-1]])
-        self.sb_roi_spec_s.setValue(self.stack_center - self.stack_width)
-        self.sb_roi_spec_e.setValue(self.stack_center + self.stack_width)
 
     def update_spectrum(self):
+
+        # set x-axis values; array taken from energy values, if clipped z box values will update the array
         self.xdata = self.energy[self.sb_zrange1.value():self.sb_zrange2.value()]
+
+        # get the cropped stack from ROI region; pyqtgraph function is used
         self.roi_img_stk = self.image_roi.getArrayRegion(self.updated_stack, self.image_view.imageItem, axes=(1, 2))
+
+        # display the ROI features in the line edit boxes
         sizex, sizey = self.roi_img_stk.shape[1], self.roi_img_stk.shape[2]
         posx, posy = self.image_roi.pos()
         self.le_roi.setText(str(int(posx)) + ':' + str(int(posy)))
         self.le_roi_size.setText(str(sizex) + ',' + str(sizey))
+
+        self.mean_spectra = get_mean_spectra(self.roi_img_stk)
+        self.curr_spec = np.column_stack([self.xdata,self.mean_spectra])
+
         try:
-            self.spectrum_view.plot(self.xdata, get_mean_spectra(self.roi_img_stk), clear=True)
+            self.spectrum_view.plot(self.xdata, self.mean_spectra , clear=True)
         except:
-            self.spectrum_view.plot(get_mean_spectra(self.roi_img_stk), clear=True)
+            self.spectrum_view.plot(self.mean_spectra, clear=True)
+
         if self.energy[-1] > 1000:
             self.e_unit = 'eV'
         else:
@@ -337,10 +395,6 @@ class midasWindow(QtWidgets.QMainWindow):
 
         self.spectrum_view.setLabel('bottom', 'Energy', self.e_unit)
         self.spectrum_view.setLabel('left', 'Intensity', 'A.U.')
-        try:
-            self.curr_spec = np.column_stack((self.xdata, get_mean_spectra(self.roi_img_stk)))
-        except:
-            self.curr_spec = np.array(get_mean_spectra(self.roi_img_stk))
         self.spectrum_view.addItem(self.spec_roi)
         self.update_spec_roi_values()
         self.math_roi_flag()
@@ -380,7 +434,7 @@ class midasWindow(QtWidgets.QMainWindow):
         try:
 
             if str(file_name[0]).endswith('log_tiff.txt'):
-                self.energy = energy_from_logfile(logfile = str(file_name[0]))
+                self.energy = energy_from_logfile(logfile=str(file_name[0]))
                 logger.info("Log file from pyxrf processing")
 
             else:
@@ -388,11 +442,11 @@ class midasWindow(QtWidgets.QMainWindow):
 
             logger.info('Energy file loaded')
             if self.energy.any():
-                    self.change_color_on_load(self.pb_elist_xanes)
+                self.change_color_on_load(self.pb_elist_xanes)
 
             assert len(self.energy) == self.dim1
 
-            if self.energy.max()<100:
+            if self.energy.max() < 100:
                 self.cb_kev_flag.setChecked(True)
                 self.energy *= 1000
 
@@ -414,7 +468,7 @@ class midasWindow(QtWidgets.QMainWindow):
                 self.change_color_on_load(self.pb_ref_xanes)
 
             elif file_name[0].endswith('.txt'):
-                self.refs = pd.read_csv(str(file_name[0]), header = None, delim_whitespace=True)
+                self.refs = pd.read_csv(str(file_name[0]), header=None, delim_whitespace=True)
                 self.change_color_on_load(self.pb_ref_xanes)
 
             self.plt_xanes_refs()
@@ -544,6 +598,7 @@ class midasWindow(QtWidgets.QMainWindow):
             pass
 
     def save_disp_spec(self):
+
         try:
             file_name = QFileDialog().getSaveFileName(self, "Save Spectrum Data", '', 'txt file(*txt)')
             np.savetxt(str(file_name[0]) + '.txt', self.curr_spec)
@@ -613,6 +668,9 @@ class midasWindow(QtWidgets.QMainWindow):
     def openMaskMaker(self):
         self.mask_window = MaskSpecViewer(xanes_stack=self.updated_stack, energy=self.energy)
         self.mask_window.show()
+
+    def open_github_link(self):
+        webbrowser.open('https://github.com/pattammattel/NSLS-II-MIDAS')
 
 
 if __name__ == "__main__":
