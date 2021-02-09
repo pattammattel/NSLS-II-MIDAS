@@ -354,7 +354,6 @@ class midasWindow(QtWidgets.QMainWindow):
 
             self.statusbar_main.showMessage(f'{self.xpixel} and {self.ypixel}')
 
-
     def replot_image(self):
         self.update_stack()
         self.update_spectrum()

@@ -2,17 +2,19 @@ import sys
 import tifffile as tf
 import matplotlib.pyplot as plt
 import pyqtgraph as pg
+import pyqtgraph.exporters
 import numpy as np
 import os
 import logging
 
-from PyQt5 import QtWidgets, uic
+from PyQt5 import QtWidgets,QtCore,QtGui, uic
 from PyQt5.QtWidgets import QFileDialog
-from pyqtgraph.Qt import QtCore, QtGui
 from pyqtgraph import ImageView, PlotWidget
 from PyQt5.QtCore import pyqtSignal
 
+#Custom .py file contains image calculations
 from StackCalcs import *
+
 logger = logging.getLogger()
 
 
@@ -167,8 +169,8 @@ class XANESViewer(QtWidgets.QMainWindow):
         self.pb_edit_refs.clicked.connect(self.choose_refs)
         self.image_roi.sigRegionChanged.connect(self.update_spectrum)
         self.pb_save_chem_map.clicked.connect(self.save_chem_map)
-        #self.pb_save_spe_fit.clicked.connect(self.reset_roi)
-        self.pb_save_spe_fit.clicked.connect(self.save_spec_fit)
+        self.pb_save_spe_fit.clicked.connect(self.pg_export_spec_fit)
+        #self.pb_save_spe_fit.clicked.connect(self.save_spec_fit)
         # self.pb_play_stack.clicked.connect(self.play_stack)
 
     def display_all_data(self):
@@ -225,12 +227,16 @@ class XANESViewer(QtWidgets.QMainWindow):
         self.spectrum_view.setLabel('left', 'Intensity', 'A.U.')
         self.spectrum_view.plot(self.xdata1, self.ydata1, pen=pen, name="Data", clear=True)
         self.spectrum_view.plot(self.xdata1, self.fit_, name="Fit", pen=pen2)
+
+        #self.indv_comp_spec = []
         for n, (coff, ref, plt_clr) in enumerate(zip(coeffs,self.inter_ref, self.plt_colors)):
             if len(self.selected) != 0:
 
-                self.spectrum_view.plot(self.xdata1, np.dot(coff,ref), name=self.selected[1:][n],pen=plt_clr)
+                self.fit_comp_spec = np.dot(coff,ref)
+
+                self.spectrum_view.plot(self.xdata1, self.fit_comp_spec, name=self.selected[1:][n],pen=plt_clr)
             else:
-                self.spectrum_view.plot(self.xdata1, np.dot(coff, ref), name="ref" + str(n + 1), pen=plt_clr)
+                self.spectrum_view.plot(self.xdata1, self.fit_comp_spec, name="ref" + str(n + 1), pen=plt_clr)
 
         self.le_r_sq.setText(str(np.around(r / self.ydata1.sum(), 4)))
 
@@ -254,12 +260,20 @@ class XANESViewer(QtWidgets.QMainWindow):
 
     def save_spec_fit(self):
         try:
-            to_save = np.column_stack((self.xdata1, self.ydata1, self.fit_))
+            to_save = np.column_stack([self.xdata1, self.ydata1, self.fit_])
             file_name = QFileDialog().getSaveFileName(self, "save spectrum", '', 'spectrum and fit (*txt)')
             np.savetxt(str(file_name[0]) + '.txt', to_save)
         except:
             logger.error('No file to save')
             pass
+
+    def pg_export_spec_fit(self):
+
+        exporter = pg.exporters.CSVExporter(self.spectrum_view.plotItem)
+        exporter.parameters()['columnMode'] = '(x,y,y,y) for all plots'
+        file_name = QFileDialog().getSaveFileName(self, "save spectrum", '', 'spectrum and fit (*csv)')
+        exporter.export(str(file_name[0])+'.csv')
+
 
 
     '''
