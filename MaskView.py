@@ -152,6 +152,8 @@ class MaskSpecViewer(QtWidgets.QMainWindow):
             logger.error('No file to save')
             pass
 
+
+
 if __name__ == "__main__":
 
     logger.setLevel(logging.INFO)

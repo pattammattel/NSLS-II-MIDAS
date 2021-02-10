@@ -34,7 +34,6 @@ class midasWindow(QtWidgets.QMainWindow):
         self.menuFile.setToolTipsVisible(True)
 
         self.actionOpen_Mask_Gen.triggered.connect(self.openMaskMaker)
-
         self.cb_transpose.stateChanged.connect(self.transpose_stack)
         self.cb_log.stateChanged.connect(self.replot_image)
         self.cb_remove_edges.stateChanged.connect(self.view_stack)
@@ -62,6 +61,7 @@ class midasWindow(QtWidgets.QMainWindow):
         self.pb_calc_cluster.clicked.connect(self.clustering_)
         self.pb_xanes_fit.clicked.connect(self.fast_xanes_fitting)
         self.pb_plot_refs.clicked.connect(self.plt_xanes_refs)
+
         self.show()
 
     def browse_file(self):
@@ -278,7 +278,6 @@ class midasWindow(QtWidgets.QMainWindow):
             self.update_stack()
 
         try:
-            self.image_view.removeItem(self.image_roi)
             self.image_view.removeItem(self.image_roi_math)
         except:
             pass
@@ -292,23 +291,14 @@ class midasWindow(QtWidgets.QMainWindow):
         if len(self.energy) == 0:
             self.energy = np.arange(self.z1, self.z2) * 10
             logger.info("Arbitary X-axis used in the plot for XANES")
-
-        # ROI settings for image, used plyline roi with non rectangular shape
         self.sz = np.max([int(self.dim2 * 0.1), int(self.dim3 * 0.1)])  # size of the roi set to be 10% of the image area
-        self.image_roi = pg.PolyLineROI([[0, 0], [0, self.sz], [self.sz, self.sz], [self.sz, 0]],
-                                        pos=(int(self.dim3 // 2), int(self.dim2 // 2)),
-                                        maxBounds=QtCore.QRect(0, 0, self.dim3, self.dim2),
-                                        closed=True,removable = True)
-        logger.info("Image ROI Added")
 
         # a second optional ROI for calculations follow
         self.image_roi_math = pg.PolyLineROI([[0, 0], [0, self.sz], [self.sz, self.sz], [self.sz, 0]],
                                              pos=(int(self.dim3 // 3), int(self.dim2 // 3)),
                                              pen='r', closed=True,removable = True)
-
-        self.image_roi.addTranslateHandle([self.sz // 2, self.sz // 2], [2, 2])
         self.image_roi_math.addTranslateHandle([self.sz // 2, self.sz // 2], [2, 2])
-        self.image_view.addItem(self.image_roi)
+
 
         self.stack_center = (self.energy[len(self.energy) // 2])
         self.stack_width = (self.energy.max() - self.energy.min()) // 10
@@ -321,17 +311,22 @@ class midasWindow(QtWidgets.QMainWindow):
                                                          self.stack_center + self.stack_width - 10), pen='r',
                                                  brush=QtGui.QColor(0, 255, 200, 50)
                                                  )
+        self.setImageROI()
         self.update_spectrum()
         self.update_image_roi()
 
         # connections
         self.image_view.mousePressEvent = self.getPointSpectrum
         self.spec_roi.sigRegionChanged.connect(self.update_image_roi)
-        self.image_roi.sigRegionChanged.connect(self.update_spectrum)
         self.spec_roi_math.sigRegionChangeFinished.connect(self.spec_roi_calc)
         self.rb_math_roi.clicked.connect(self.update_spectrum)
         self.rb_math_roi_img.clicked.connect(self.math_img_roi_flag)
-        self.image_roi_math.sigRegionChanged.connect(self.image_roi_calc)
+        self.image_roi_math.sigRegionChangeFinished.connect(self.image_roi_calc)
+        self.rb_poly_roi.clicked.connect(self.setImageROI)
+        self.rb_elli_roi.clicked.connect(self.setImageROI)
+        self.rb_rect_roi.clicked.connect(self.setImageROI)
+        self.rb_line_roi.clicked.connect(self.setImageROI)
+        self.rb_circle_roi.clicked.connect(self.setImageROI)
 
     def getPointSpectrum(self, event):
 
@@ -340,19 +335,65 @@ class midasWindow(QtWidgets.QMainWindow):
             zlim, xlim, ylim = self.updated_stack.shape
 
             if self.xpixel > xlim:
-                self.xpixel = xlim
+                self.xpixel = xlim-1
 
             self.ypixel  = int(self.image_view.view.mapSceneToView(event.pos()).y())-1
             if self.ypixel > ylim:
-                self.ypixel = ylim
+                self.ypixel = ylim-1
 
             self.spectrum_view.addLegend()
-            self.mean_spectra = self.updated_stack[:,self.xpixel,self.ypixel]
-            self.spectrum_view.plot(self.xdata, self.mean_spectra, clear=True,
-                                    name = f'x= {self.xpixel}, y= {self.ypixel}')
+            self.point_spectrum = self.updated_stack[:,self.xpixel,self.ypixel]
+            self.spectrum_view.plot(self.xdata, self.point_spectrum, clear=True,
+                                    name = f'Point Spectrum; x= {self.xpixel}, y= {self.ypixel}')
 
+            self.spectrum_view.addItem(self.spec_roi)
 
             self.statusbar_main.showMessage(f'{self.xpixel} and {self.ypixel}')
+
+    def setImageROI(self):
+
+        self.lineROI = pg.LineSegmentROI([[int(self.dim3 // 2), int(self.dim2 // 2)],
+                                          [self.sz, self.sz]], pen='r')
+
+        self.rectROI = pg.RectROI([int(self.dim3 // 2), int(self.dim2 // 2)],
+                                  [self.sz, self.sz], pen='w')
+
+        self.ellipseROI = pg.EllipseROI([int(self.dim3 // 2), int(self.dim2 // 2)],
+                                        [self.sz, self.sz], pen='w')
+
+        self.circleROI = pg.CircleROI([int(self.dim3 // 2), int(self.dim2 // 2)],
+                                      [self.sz, self.sz], pen='w')  # pos and size
+
+        self.polyLineROI = pg.PolyLineROI([[0, 0], [0, self.sz], [self.sz, self.sz], [self.sz, 0]],
+                                          pos=(int(self.dim3 // 2), int(self.dim2 // 2)),
+                                          maxBounds=QtCore.QRect(0, 0, self.dim3, self.dim2),
+                                          closed=True, removable=True)
+        self.polyLineROI.addTranslateHandle([self.sz // 2, self.sz // 2], [2, 2])
+
+
+        self.rois = {'rb_line_roi':self.lineROI,'rb_rect_roi':self.rectROI,'rb_circle_roi':self.circleROI,
+                    'rb_elli_roi':self.ellipseROI,'rb_poly_roi':self.polyLineROI}
+
+        button_name = self.sender()
+
+        if button_name.objectName() in self.rois.keys():
+            self.roi_preference = button_name.objectName()
+
+        else:
+            self.roi_preference = 'rb_poly_roi'  # default
+
+        try:
+            self.image_view.removeItem(self.image_roi)
+        except:
+            pass
+
+        # ROI settings for image, used polyline roi with non rectangular shape
+
+        self.image_roi = self.rois[self.roi_preference]
+        #self.image_roi.addTranslateHandle([self.sz // 2, self.sz // 2], [2, 2])
+
+        self.image_view.addItem(self.image_roi)
+        self.image_roi.sigRegionChanged.connect(self.update_spectrum)
 
     def replot_image(self):
         self.update_stack()
@@ -373,19 +414,30 @@ class midasWindow(QtWidgets.QMainWindow):
         # get the cropped stack from ROI region; pyqtgraph function is used
         self.roi_img_stk = self.image_roi.getArrayRegion(self.updated_stack, self.image_view.imageItem, axes=(1, 2))
 
-        # display the ROI features in the line edit boxes
-        sizex, sizey = self.roi_img_stk.shape[1], self.roi_img_stk.shape[2]
         posx, posy = self.image_roi.pos()
         self.le_roi.setText(str(int(posx)) + ':' + str(int(posy)))
-        self.le_roi_size.setText(str(sizex) + ',' + str(sizey))
 
-        self.mean_spectra = get_mean_spectra(self.roi_img_stk)
-        self.curr_spec = np.column_stack([self.xdata,self.mean_spectra])
+        # display the ROI features in the line edit boxes
+        if self.roi_img_stk.ndim == 3:
+            sizex, sizey = self.roi_img_stk.shape[1], self.roi_img_stk.shape[2]
+            self.le_roi_size.setText(str(sizex) + ',' + str(sizey))
+
+            self.mean_spectra = get_mean_spectra(self.roi_img_stk)
+            self.curr_spec = np.column_stack([self.xdata,self.mean_spectra])
+
+        elif self.roi_img_stk.ndim == 2:
+            sizex, sizey = self.roi_img_stk.shape[0], self.roi_img_stk.shape[1]
+            self.le_roi_size.setText(str(sizex) + ',' + str(sizey))
+            self.mean_spectra = self.roi_img_stk.mean(-1)
+            self.curr_spec = np.column_stack([self.xdata,self.mean_spectra])
+
+
+        self.spectrum_view.addLegend()
 
         try:
-            self.spectrum_view.plot(self.xdata, self.mean_spectra , clear=True)
+            self.spectrum_view.plot(self.xdata, self.mean_spectra , clear=True, name = 'ROI Spectrum')
         except:
-            self.spectrum_view.plot(self.mean_spectra, clear=True)
+            self.spectrum_view.plot(self.mean_spectra, clear=True, name = 'ROI Spectrum')
 
         if self.energy[-1] > 1000:
             self.e_unit = 'eV'
@@ -426,6 +478,183 @@ class midasWindow(QtWidgets.QMainWindow):
         self.spec_hi_idx_ = (np.abs(self.energy - self.spec_hi_)).argmin()
         self.spec_roi.setRegion((self.xdata[self.spec_lo_idx_], self.xdata[self.spec_hi_idx_]))
         self.update_image_roi()
+
+    def math_roi_flag(self):
+        if self.rb_math_roi.isChecked():
+            self.rb_math_roi.setStyleSheet("color : green")
+            self.spectrum_view.addItem(self.spec_roi_math)
+        else:
+            self.rb_math_roi.setStyleSheet("color : red")
+            self.spectrum_view.removeItem(self.spec_roi_math)
+
+    def spec_roi_calc(self):
+
+        self.spec_lo_m, self.spec_hi_m = self.spec_roi_math.getRegion()
+        self.spec_lo_m_idx = (np.abs(self.energy - self.spec_lo_m)).argmin()
+        self.spec_hi_m_idx = (np.abs(self.energy - self.spec_hi_m)).argmin()
+
+        if int(self.spec_lo_idx) == int(self.spec_hi_idx):
+            self.img1 = self.updated_stack[int(self.spec_hi_idx), :, :]
+
+        else:
+            self.img1 = self.updated_stack[int(self.spec_lo_idx):int(self.spec_hi_idx), :, :].mean(0)
+
+        if int(self.spec_lo_m_idx) == int(self.spec_hi_m_idx):
+            self.img2 = self.updated_stack[int(self.spec_hi_m_idx), :, :]
+
+        else:
+            self.img2 = self.updated_stack[int(self.spec_lo_m_idx):int(self.spec_hi_m_idx), :, :].mean(0)
+
+        if self.cb_roi_operation.currentText() == "Correlation Plot":
+            self.correlation_plot()
+
+        else:
+            calc = {'Divide': np.divide, 'Subtract': np.subtract, 'Add': np.add}
+            self.disp_img = remove_nan_inf(calc[self.cb_roi_operation.currentText()](self.img1, self.img2))
+            self.image_view.setImage(self.disp_img)
+
+    def math_img_roi_flag(self):
+        if self.rb_math_roi_img.isChecked():
+            self.rb_math_roi_img.setStyleSheet("color : green")
+            self.image_view.addItem(self.image_roi_math)
+        else:
+            self.rb_math_roi_img.setStyleSheet("color : red")
+            self.image_view.removeItem(self.image_roi_math)
+
+    def image_roi_calc(self):
+
+        if self.rb_math_roi_img.isChecked():
+            self.calc = {'Divide': np.divide, 'Subtract': np.subtract, 'Add': np.add}
+            ref_region = self.image_roi_math.getArrayRegion(self.updated_stack, self.image_view.imageItem, axes=(1, 2))
+            ref_reg_avg = ref_region[int(self.spec_lo_idx):int(self.spec_hi_idx), :, :].mean()
+            currentImage = self.updated_stack[int(self.spec_lo_idx):int(self.spec_hi_idx), :, :].mean(0)
+            if self.calc[self.cb_img_roi_action.currentText()] == 'Compare':
+                pass
+
+            else:
+                self.image_view.setImage(self.calc[self.cb_img_roi_action.currentText()]
+                                         (currentImage, (ref_reg_avg + currentImage * 0)))
+            self.update_spec_image_roi()
+        else:
+            pass
+
+    def update_spec_image_roi(self):
+
+        self.math_roi_reg = self.image_roi_math.getArrayRegion(self.updated_stack,
+                                                               self.image_view.imageItem, axes=(1, 2))
+        if self.math_roi_reg.ndim == 3:
+
+            self.math_roi_spectra = get_mean_spectra(self.math_roi_reg)
+
+        elif self.roi_img_stk.ndim == 2:
+            self.math_roi_spectra = self.math_roi_reg.mean(-1)
+
+        calc_spec = self.calc[self.cb_img_roi_action.currentText()](self.mean_spectra,
+                                                                    self.math_roi_spectra)
+        self.spectrum_view.addLegend()
+        self.spectrum_view.plot(self.xdata, calc_spec, clear=True, pen='m',
+                                name=self.cb_img_roi_action.currentText() + "ed")
+        self.spectrum_view.plot(self.xdata, self.math_roi_spectra, pen='y',
+                                name="math_region")
+        self.spectrum_view.plot(self.xdata, self.mean_spectra, pen='g',
+                                name="raw")
+
+        self.spectrum_view.addItem(self.spec_roi)
+
+    def correlation_plot(self):
+
+        self.statusbar_main.showMessage(f'Correlation stack {int(self.spec_lo_idx)}:{int(self.spec_hi_idx)} with '
+                                        f'{int(self.spec_lo_m_idx)}:{int(self.spec_hi_m_idx)}')
+
+        self.scatter_window = ScatterPlot(self.img1, self.img2)
+
+        ph = self.geometry().height()
+        pw = self.geometry().width()
+        px = self.geometry().x()
+        py = self.geometry().y()
+        dw = self.scatter_window.width()
+        dh = self.scatter_window.height()
+        # self.scatter_window.setGeometry(px+0.65*pw, py + ph - 2*dh-5, dw, dh)
+        self.scatter_window.show()
+
+    def save_stack(self):
+        try:
+            self.update_stack()
+            file_name = QFileDialog().getSaveFileName(self, "Save image data", '', 'image file(*tiff *tif )')
+            tf.imsave(str(file_name[0]), self.updated_stack.transpose(0, 2, 1))
+            logger.info(f'Updated Image Saved: {str(file_name[0])}')
+        except:
+            logger.error('No file to save')
+            pass
+
+    def save_disp_img(self):
+        try:
+            file_name = QFileDialog().getSaveFileName(self, "Save image data", '', 'image file(*tiff *tif )')
+            tf.imsave(str(file_name[0]) + '.tiff', self.disp_img.T)
+            logger.info(f'Updated Image Saved: {str(file_name[0])}')
+
+        except:
+            logger.error('No file to save')
+            pass
+
+    def save_disp_spec(self):
+
+        exporter = pg.exporters.CSVExporter(self.spectrum_view.plotItem)
+        exporter.parameters()['columnMode'] = '(x,y,y,y) for all plots'
+        file_name = QFileDialog().getSaveFileName(self, "save spectrum", '', 'spectra (*csv)')
+        exporter.export(str(file_name[0])+'.csv')
+
+    def pca_scree_(self):
+        logger.info('Process started..')
+        self.update_stack()
+        pca_scree(self.updated_stack)
+        logger.info('Process complete')
+
+    def calc_comp_(self):
+
+        logger.info('Process started..')
+
+        self.update_stack()
+        n_components = self.sb_ncomp.value()
+        method_ = self.cb_comp_method.currentText()
+
+        ims, comp_spec, decon_spec, decomp_map = decompose_stack(self.updated_stack,
+                                                                 decompose_method=method_, n_components_=n_components)
+
+        self._new_window3 = ComponentViewer(ims, self.xdata, comp_spec, decon_spec, decomp_map)
+        self._new_window3.show()
+
+        logger.info('Process complete')
+
+    def kmeans_elbow(self):
+        logger.info('Process started..')
+        self.update_stack()
+        try:
+            kmeans_variance(self.updated_stack)
+            logger.info('Process complete')
+        except OverflowError:
+            pass
+            logger.error('Overflow Error, values are too long')
+
+    def clustering_(self):
+
+        logger.info('Process started..')
+        self.update_stack()
+        method_ = self.cb_clust_method.currentText()
+
+        decon_images, X_cluster, decon_spectra = cluster_stack(self.updated_stack, method=method_,
+                                                               n_clusters_=self.sb_ncluster.value(),
+                                                               decomposed=False,
+                                                               decompose_method=self.cb_comp_method.currentText(),
+                                                               decompose_comp=self.sb_ncomp.value())
+
+        self._new_window4 = ClusterViewer(decon_images, self.xdata, X_cluster, decon_spectra)
+        self._new_window4.show()
+
+        logger.info('Process complete')
+
+    def change_color_on_load(self, button_name):
+        button_name.setStyleSheet("background-color : green")
 
     def select_elist(self):
         file_name = QFileDialog().getOpenFileName(self, "Open energy list", '', 'text file (*.txt)')
@@ -486,178 +715,6 @@ class midasWindow(QtWidgets.QMainWindow):
         plt.title("Reference Standards")
         plt.xlabel("Energy")
         plt.show()
-
-    def math_roi_flag(self):
-        if self.rb_math_roi.isChecked():
-            self.rb_math_roi.setStyleSheet("color : green")
-            self.spectrum_view.addItem(self.spec_roi_math)
-        else:
-            self.rb_math_roi.setStyleSheet("color : red")
-            self.spectrum_view.removeItem(self.spec_roi_math)
-
-    def spec_roi_calc(self):
-
-        self.spec_lo_m, self.spec_hi_m = self.spec_roi_math.getRegion()
-        self.spec_lo_m_idx = (np.abs(self.energy - self.spec_lo_m)).argmin()
-        self.spec_hi_m_idx = (np.abs(self.energy - self.spec_hi_m)).argmin()
-
-        if int(self.spec_lo_idx) == int(self.spec_hi_idx):
-            self.img1 = self.updated_stack[int(self.spec_hi_idx), :, :]
-
-        else:
-            self.img1 = self.updated_stack[int(self.spec_lo_idx):int(self.spec_hi_idx), :, :].mean(0)
-
-        if int(self.spec_lo_m_idx) == int(self.spec_hi_m_idx):
-            self.img2 = self.updated_stack[int(self.spec_hi_m_idx), :, :]
-
-        else:
-            self.img2 = self.updated_stack[int(self.spec_lo_m_idx):int(self.spec_hi_m_idx), :, :].mean(0)
-
-        if self.cb_roi_operation.currentText() == "Correlation Plot":
-            self.correlation_plot()
-
-        else:
-            calc = {'Divide': np.divide, 'Subtract': np.subtract, 'Add': np.add}
-            self.disp_img = remove_nan_inf(calc[self.cb_roi_operation.currentText()](self.img1, self.img2))
-            self.image_view.setImage(self.disp_img)
-
-    def correlation_plot(self):
-
-        self.statusbar_main.showMessage(f'Correlation stack {int(self.spec_lo_idx)}:{int(self.spec_hi_idx)} with '
-                                        f'{int(self.spec_lo_m_idx)}:{int(self.spec_hi_m_idx)}')
-
-        self.scatter_window = ScatterPlot(self.img1, self.img2)
-
-        ph = self.geometry().height()
-        pw = self.geometry().width()
-        px = self.geometry().x()
-        py = self.geometry().y()
-        dw = self.scatter_window.width()
-        dh = self.scatter_window.height()
-        # self.scatter_window.setGeometry(px+0.65*pw, py + ph - 2*dh-5, dw, dh)
-        self.scatter_window.show()
-
-    def math_img_roi_flag(self):
-        if self.rb_math_roi_img.isChecked():
-            self.rb_math_roi_img.setStyleSheet("color : green")
-            self.image_view.addItem(self.image_roi_math)
-        else:
-            self.rb_math_roi_img.setStyleSheet("color : red")
-            self.image_view.removeItem(self.image_roi_math)
-
-    def image_roi_calc(self):
-
-        if self.rb_math_roi_img.isChecked():
-            self.calc = {'Divide': np.divide, 'Subtract': np.subtract, 'Add': np.add}
-            ref_region = self.image_roi_math.getArrayRegion(self.updated_stack, self.image_view.imageItem, axes=(1, 2))
-            ref_reg_avg = ref_region[int(self.spec_lo_idx):int(self.spec_hi_idx), :, :].mean()
-            currentImage = self.updated_stack[int(self.spec_lo_idx):int(self.spec_hi_idx), :, :].mean(0)
-            if self.calc[self.cb_img_roi_action.currentText()] == 'Compare':
-                pass
-
-            else:
-                self.image_view.setImage(self.calc[self.cb_img_roi_action.currentText()]
-                                         (currentImage, (ref_reg_avg + currentImage * 0)))
-            self.update_spec_image_roi()
-        else:
-            pass
-
-    def update_spec_image_roi(self):
-        main_roi_reg = self.image_roi.getArrayRegion(self.updated_stack, self.image_view.imageItem, axes=(1, 2))
-        math_roi_reg = self.image_roi_math.getArrayRegion(self.updated_stack, self.image_view.imageItem, axes=(1, 2))
-        calc_spec = self.calc[self.cb_img_roi_action.currentText()](get_mean_spectra(main_roi_reg),
-                                                                    get_mean_spectra(math_roi_reg))
-        self.spectrum_view.addLegend()
-        self.spectrum_view.plot(self.xdata, calc_spec, clear=True, pen='m',
-                                name=self.cb_img_roi_action.currentText() + "ed")
-        self.spectrum_view.plot(self.xdata, get_mean_spectra(main_roi_reg), pen='g',
-                                name="raw")
-        self.curr_spec = np.column_stack((self.xdata, calc_spec, get_mean_spectra(main_roi_reg)))
-
-        self.spectrum_view.addItem(self.spec_roi)
-
-    def save_stack(self):
-        try:
-            self.update_stack()
-            file_name = QFileDialog().getSaveFileName(self, "Save image data", '', 'image file(*tiff *tif )')
-            tf.imsave(str(file_name[0]), self.updated_stack.transpose(0, 2, 1))
-            logger.info(f'Updated Image Saved: {str(file_name[0])}')
-        except:
-            logger.error('No file to save')
-            pass
-
-    def save_disp_img(self):
-        try:
-            file_name = QFileDialog().getSaveFileName(self, "Save image data", '', 'image file(*tiff *tif )')
-            tf.imsave(str(file_name[0]) + '.tiff', self.disp_img.T)
-            logger.info(f'Updated Image Saved: {str(file_name[0])}')
-
-        except:
-            logger.error('No file to save')
-            pass
-
-    def save_disp_spec(self):
-
-        try:
-            file_name = QFileDialog().getSaveFileName(self, "Save Spectrum Data", '', 'txt file(*txt)')
-            np.savetxt(str(file_name[0]) + '.txt', self.curr_spec)
-            logger.info(f'Spectrum Saved: {str(file_name[0])}')
-
-        except:
-            logger.error('No file to save')
-            pass
-
-    def pca_scree_(self):
-        logger.info('Process started..')
-        self.update_stack()
-        pca_scree(self.updated_stack)
-        logger.info('Process complete')
-
-    def calc_comp_(self):
-
-        logger.info('Process started..')
-
-        self.update_stack()
-        n_components = self.sb_ncomp.value()
-        method_ = self.cb_comp_method.currentText()
-
-        ims, comp_spec, decon_spec, decomp_map = decompose_stack(self.updated_stack,
-                                                                 decompose_method=method_, n_components_=n_components)
-
-        self._new_window3 = ComponentViewer(ims, self.xdata, comp_spec, decon_spec, decomp_map)
-        self._new_window3.show()
-
-        logger.info('Process complete')
-
-    def kmeans_elbow(self):
-        logger.info('Process started..')
-        self.update_stack()
-        try:
-            kmeans_variance(self.updated_stack)
-            logger.info('Process complete')
-        except OverflowError:
-            pass
-            logger.error('Overflow Error, values are too long')
-
-    def clustering_(self):
-
-        logger.info('Process started..')
-        self.update_stack()
-        method_ = self.cb_clust_method.currentText()
-
-        decon_images, X_cluster, decon_spectra = cluster_stack(self.updated_stack, method=method_,
-                                                               n_clusters_=self.sb_ncluster.value(),
-                                                               decomposed=False,
-                                                               decompose_method=self.cb_comp_method.currentText(),
-                                                               decompose_comp=self.sb_ncomp.value())
-
-        self._new_window4 = ClusterViewer(decon_images, self.xdata, X_cluster, decon_spectra)
-        self._new_window4.show()
-
-        logger.info('Process complete')
-
-    def change_color_on_load(self, button_name):
-        button_name.setStyleSheet("background-color : green")
 
     def fast_xanes_fitting(self):
 

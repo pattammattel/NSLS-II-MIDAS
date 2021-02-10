@@ -350,14 +350,14 @@ class ScatterPlot(QtWidgets.QMainWindow):
         super(ScatterPlot, self).__init__()
 
         uic.loadUi('uis/ScatterView.ui', self)
-        w1 = self.scatterViewer.addPlot()
+        self.w1 = self.scatterViewer.addPlot()
         self.img1 = img1
         self.img2 = img2
-        s1 = pg.ScatterPlotItem(size=2, pen=pg.mkPen(None), brush=pg.mkBrush(255, 255, 0, 120))
-        s1.setData(self.img1.flatten(),self.img2.flatten())
-        w1.setLabel('bottom','Image ROI')
-        w1.setLabel('left', 'Math ROI')
-        w1.addItem(s1)
+        self.s1 = pg.ScatterPlotItem(size=2, pen=pg.mkPen(None), brush=pg.mkBrush(255, 255, 0, 120))
+        self.s1.setData(self.img1.flatten(),self.img2.flatten())
+        self.w1.setLabel('bottom','Image ROI')
+        self.w1.setLabel('left', 'Math ROI')
+        self.w1.addItem(self.s1)
 
         self.image_view.setImage(self.img1)
         self.image_view.ui.menuBtn.hide()
@@ -368,6 +368,25 @@ class ScatterPlot(QtWidgets.QMainWindow):
         self.image_view2.ui.menuBtn.hide()
         self.image_view2.ui.roiBtn.hide()
         self.image_view2.setPredefinedGradient('thermal')
+
+        # connections
+        self.actionSave_Plot.triggered.connect(self.pg_export_correlation)
+        self.actionSave_Images.triggered.connect(self.tiff_export_images)
+
+    def pg_export_correlation(self):
+
+        exporter = pg.exporters.CSVExporter(self.w1)
+        exporter.parameters()['columnMode'] = '(x,y,y,y) for all plots'
+        file_name = QFileDialog().getSaveFileName(self, "save correlation", '', 'spectrum and fit (*csv)')
+        exporter.export(str(file_name[0])+'.csv')
+        self.statusbar.showMessage(f"Data saved to {str(file_name[0])}")
+
+    def tiff_export_images(self):
+        file_name = QFileDialog().getSaveFileName(self, "save images", '', 'spectrum and fit (*tiff)')
+        tf.imsave(str(file_name[0]) + '.tiff', np.dstack([self.img1,self.img2]).T)
+        self.statusbar.showMessage(f"Images saved to {str(file_name[0])}")
+
+
 
 
 
