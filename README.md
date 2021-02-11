@@ -10,3 +10,5 @@ Installation
 3. open a terminal program in the folder. (if not familiar check it here: https://www.groovypost.com/howto/open-command-window-terminal-window-specific-folder-windows-mac-linux/)
 4. type 'pip install -r requirements.txt'
 5. after all the downloads without errors, type ' python main.py'. Progam should appear now.
+
+![alt text](https://github.com/pattammattel/NSLS-II-MIDAS/blob/main/Midas_view.JPG)
