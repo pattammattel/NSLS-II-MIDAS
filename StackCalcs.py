@@ -8,6 +8,7 @@ import matplotlib.pyplot as plt
 import h5py
 import logging
 from scipy.signal import savgol_filter
+from skimage.transform import resize
 
 logger = logging.getLogger()
 
@@ -55,7 +56,7 @@ def get_xrf_data(h='h5file'):
         mono_e = 12000
         logger.info(f'Unable to get Excitation energy from the h5 data; using default value {mono_e} KeV')
 
-    return remove_nan_inf(norm_xrf_stack), mono_e + 1000, beamline, Io_avg
+    return remove_nan_inf(norm_xrf_stack.T), mono_e + 1000, beamline, Io_avg
 
 
 def remove_nan_inf(im):
@@ -103,18 +104,24 @@ def smoothen(image_array, w_size=5):
     return remove_nan_inf(norm_stack)
 
 
+def resize_stack(image_array, upscaling = False, scaling_factor = 2):
+    en, im1, im2 = np.shape(image_array)
+
+    if upscaling:
+        im1_ = im1 * scaling_factor
+        im2_ = im2 * scaling_factor
+        img_stack_resized = resize(image_array, (en, im1_, im2_))
+
+    else:
+        im1_ = int(im1/scaling_factor)
+        im2_ = int(im2/scaling_factor)
+        img_stack_resized = resize(image_array, (en, im1_, im2_))
+
+    return img_stack_resized
+
+
 def normalize(image_array, norm_point=-1):
-    a, b, c = np.shape(image_array)
-    image_array = remove_nan_inf(image_array)
-    spec2D_Matrix = np.reshape(image_array, (a, (b * c)))
-    norm_stack = np.zeros(np.shape(spec2D_Matrix))
-    tot_spec = np.shape(spec2D_Matrix)[1]
-
-    for i in range(tot_spec):
-        norm_spec = spec2D_Matrix[:, i] / (spec2D_Matrix[:, i][norm_point])
-        norm_stack[:, i] = norm_spec
-
-    norm_stack = np.reshape(norm_stack, (a, b, c))
+    norm_stack = image_array/image_array[norm_point]
     return remove_nan_inf(norm_stack)
 
 
@@ -202,7 +209,6 @@ def neg_log(image_array):
 
 
 def clean_stack(img_stack, auto_bg=False, bg_percentage=5):
-    img_stack = remove_hot_pixels(img_stack)
     a, b, c = np.shape(img_stack)
 
     if auto_bg == True:
@@ -394,30 +400,25 @@ def interploate_E(refs, e):
 
 def xanes_fitting(im_stack, e_list, refs, method='NNLS'):
     """Linear combination fit of image data with reference standards"""
-    new_image = im_stack.transpose(2, 1, 0)
-    x, y, z = np.shape(new_image)
+    en, im1, im2 = np.shape(im_stack)
 
-    refs = (interploate_E(refs, e_list)).T
-
-    if refs.ndim == 1:
-        refs = refs.reshape(refs.shape[0], 1)
-    M = np.reshape(new_image, (x * y, z))
+    int_refs = (interploate_E(refs, e_list))
+    im_array = im_stack.reshape(en, im1 * im2)
 
     if method == 'NNLS':
-        N, p1 = M.shape
-        q, p2 = refs.T.shape
 
-        map = np.zeros((N, q), dtype=np.float32)
-        MtM = np.dot(refs.T, refs)
-        for n1 in range(N):
-            map[n1] = opt.nnls(MtM, np.dot(refs.T, M[n1]))[0]
-        map = map.reshape(new_image.shape[:-1] + (refs.shape[-1],))
+        coeffs_arr = []
+        r_factor_arr = []
 
-    if method == 'UCLS':  # refer to hypers
-        x_inverse = np.linalg.pinv(refs)
-        map = np.dot(x_inverse, M.T).T.reshape(new_image.shape[:-1] + (refs.shape[-1],))
+        for i in range(im1 * im2):
+            coeffs, r = opt.nnls(int_refs.T, im_array[:, i])
+            coeffs_arr.append(coeffs)
+            r_factor_arr.append(r)
 
-    return map
+        abundance_map = np.reshape(coeffs_arr, (im1, im2, -1))
+        r_factor = np.reshape(r_factor_arr, (im1, im2))
+
+    return abundance_map, r_factor
 
 
 def create_df_from_nor(athenafile='fe_refs.nor'):

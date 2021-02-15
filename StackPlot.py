@@ -7,7 +7,7 @@ import numpy as np
 import os
 import logging
 
-from PyQt5 import QtWidgets,QtCore,QtGui, uic
+from PyQt5 import QtWidgets,QtCore,QtGui, uic, QtTest
 from PyQt5.QtWidgets import QFileDialog
 from pyqtgraph import ImageView, PlotWidget
 from PyQt5.QtCore import pyqtSignal
@@ -110,11 +110,11 @@ class ClusterViewer(QtWidgets.QMainWindow):
         self.cluster_view.ui.roiBtn.hide()
 
         # connection
-        self.update()
-        self.hsb_cluster_number.valueChanged.connect(self.update)
+        self.update_display()
+        self.hsb_cluster_number.valueChanged.connect(self.update_display)
         self.actionSave.triggered.connect(self.save_clust_data)
 
-    def update(self):
+    def update_display(self):
         im_index = self.hsb_cluster_number.value()
         self.component_view.setLabel('bottom','Energy')
         self.component_view.setLabel('left', 'Intensity', 'A.U.')
@@ -124,9 +124,16 @@ class ClusterViewer(QtWidgets.QMainWindow):
 
     def save_clust_data(self):
         file_name = QFileDialog().getSaveFileName(self, "", '', 'data(*tiff *tif *txt *png )')
-        tf.imsave(str(file_name[0]) + '_cluster.tiff', np.float32(self.decon_images.transpose(0, 2, 1)), imagej=True)
-        tf.imsave(str(file_name[0]) + '_cluster_map.tiff', np.float32(self.X_cluster.T),imagej=True)
-        np.savetxt(str(file_name[0]) + '_deconv_spec.txt', self.decon_spectra)
+        if file_name[0]:
+
+            tf.imsave(str(file_name[0]) + '_cluster.tiff', np.float32(self.decon_images.transpose(0, 2, 1)), imagej=True)
+            tf.imsave(str(file_name[0]) + '_cluster_map.tiff', np.float32(self.X_cluster.T),imagej=True)
+            np.savetxt(str(file_name[0]) + '_deconv_spec.txt', self.decon_spectra)
+
+        else:
+            logger.error("Saving Cancelled")
+            self.statusbar.showMessage("Saving Cancelled")
+            pass
 
 
 class XANESViewer(QtWidgets.QMainWindow):
@@ -142,26 +149,26 @@ class XANESViewer(QtWidgets.QMainWindow):
         self.ref_names = ref_names
         self.selected = self.ref_names
 
-        self.decon_ims = xanes_fitting(self.im_stack, self.e_list, self.refs, method='NNLS').T
+        self.decon_ims, self.rfactor = xanes_fitting(self.im_stack, self.e_list, self.refs, method='NNLS')
 
         (self.dim1, self.dim3, self.dim2) = self.im_stack.shape
         self.cn = int(self.dim2 // 2)
         self.sz = np.max([int(self.dim2 * 0.15),int(self.dim3 * 0.15)])
         self.image_roi = pg.PolyLineROI([[0,0], [0,self.sz], [self.sz,self.sz], [self.sz,0]],
-                                        pos =(int(self.dim2 // 2), int(self.dim3 // 2)), closed=True)
+                                        pos =(int(self.dim2 // 2), int(self.dim3 // 2)),
+                                        maxBounds=QtCore.QRect(0, 0, self.dim3, self.dim2),closed=True)
         self.image_roi.addTranslateHandle([self.sz//2, self.sz//2], [2, 2])
-        self.image_view.setImage(self.im_stack)
-        self.image_view.ui.menuBtn.hide()
-        self.image_view.ui.roiBtn.hide()
-        self.image_view.setPredefinedGradient('viridis')
+
         self.stack_center = int(self.dim1 // 2)
         self.stack_width = int(self.dim1 * 0.05)
-        self.image_view.setCurrentIndex(self.stack_center)
+        #self.image_view.setCurrentIndex(self.stack_center)
+
         self.image_view.addItem(self.image_roi)
         self.xdata = self.e_list + self.sb_e_shift.value()
 
-        self.display_all_data()
-
+        self.scrollBar_setup()
+        self.display_image_data()
+        self.display_references()
         self.update_spectrum()
         # connections
         self.sb_e_shift.valueChanged.connect(self.update_spectrum)
@@ -170,17 +177,34 @@ class XANESViewer(QtWidgets.QMainWindow):
         self.image_roi.sigRegionChanged.connect(self.update_spectrum)
         self.pb_save_chem_map.clicked.connect(self.save_chem_map)
         self.pb_save_spe_fit.clicked.connect(self.pg_export_spec_fit)
+        self.hsb_xanes_stk.valueChanged.connect(self.display_image_data)
+        self.hsb_chem_map.valueChanged.connect(self.display_image_data)
+
         #self.pb_save_spe_fit.clicked.connect(self.save_spec_fit)
         # self.pb_play_stack.clicked.connect(self.play_stack)
 
-    def display_all_data(self):
-        self.image_view_maps.setImage(self.decon_ims)
+    def scrollBar_setup(self):
+        self.hsb_xanes_stk.setValue(self.stack_center)
+        self.hsb_xanes_stk.setMaximum(self.dim1 - 1)
+        self.hsb_chem_map.setValue(0)
+        self.hsb_chem_map.setMaximum(self.decon_ims.shape[-1]-1)
+
+    def display_image_data(self):
+
+        self.image_view.setImage(self.im_stack[self.hsb_xanes_stk.value()])
+        self.image_view.ui.menuBtn.hide()
+        self.image_view.ui.roiBtn.hide()
+        self.image_view.setPredefinedGradient('viridis')
+
+        self.image_view_maps.setImage(self.decon_ims.transpose(2,0,1)[self.hsb_chem_map.value()])
         self.image_view_maps.setPredefinedGradient('bipolar')
         self.image_view_maps.ui.menuBtn.hide()
         self.image_view_maps.ui.roiBtn.hide()
-        self.inter_ref = interploate_E(self.refs, self.xdata)
 
-        self.plt_colors = ['c', 'm', 'y', 'w', 'k']*2
+    def display_references(self):
+
+        self.inter_ref = interploate_E(self.refs, self.xdata)
+        self.plt_colors = ['c', 'm', 'y', 'w']*4
         self.spectrum_view_refs.addLegend()
         for ii in range(self.inter_ref.shape[0]):
             if len(self.selected) != 0:
@@ -197,7 +221,7 @@ class XANESViewer(QtWidgets.QMainWindow):
         self.ref_edit_window.signal.connect(self.update_refs)
 
     def update_refs(self,list_):
-        self.selected = list_
+        self.selected = list_ # list_ is the signal from ref chooser
         self.update_spectrum()
         self.re_fit_xanes()
 
@@ -228,32 +252,32 @@ class XANESViewer(QtWidgets.QMainWindow):
         self.spectrum_view.plot(self.xdata1, self.ydata1, pen=pen, name="Data", clear=True)
         self.spectrum_view.plot(self.xdata1, self.fit_, name="Fit", pen=pen2)
 
-        #self.indv_comp_spec = []
         for n, (coff, ref, plt_clr) in enumerate(zip(coeffs,self.inter_ref, self.plt_colors)):
+
             if len(self.selected) != 0:
 
-                self.fit_comp_spec = np.dot(coff,ref)
-
-                self.spectrum_view.plot(self.xdata1, self.fit_comp_spec, name=self.selected[1:][n],pen=plt_clr)
+                self.spectrum_view.plot(self.xdata1, np.dot(coff, ref), name=self.selected[1:][n],pen=plt_clr)
             else:
-                self.spectrum_view.plot(self.xdata1, self.fit_comp_spec, name="ref" + str(n + 1), pen=plt_clr)
+                self.spectrum_view.plot(self.xdata1, np.dot(coff, ref), name="ref" + str(n + 1), pen=plt_clr)
 
         self.le_r_sq.setText(str(np.around(r / self.ydata1.sum(), 4)))
 
     def re_fit_xanes(self):
         if len(self.selected) != 0:
-            self.decon_ims = xanes_fitting(self.im_stack, self.e_list + self.sb_e_shift.value(),
+            self.decon_ims, self.rfactor = xanes_fitting(self.im_stack, self.e_list + self.sb_e_shift.value(),
                                        self.refs[self.selected], method='NNLS')
         else:
-            self.decon_ims = xanes_fitting(self.im_stack, self.e_list + self.sb_e_shift.value(),
+            self.decon_ims,self.rfactor  = xanes_fitting(self.im_stack, self.e_list + self.sb_e_shift.value(),
                                        self.refs, method='NNLS')
 
-        self.image_view_maps.setImage(self.decon_ims.T)
+        self.image_view_maps.setImage(self.decon_ims.transpose(2,0,1))
+        self.scrollBar_setup()
 
     def save_chem_map(self):
         file_name = QFileDialog().getSaveFileName(self, "save image", '', 'image data (*tiff)')
         try:
-            tf.imsave(str(file_name[0]) + '.tiff', np.float32(self.decon_ims.transpose(0,2,1)), imagej=True)
+            tf.imsave(str(file_name[0]) + '_xanes_map.tiff', np.float32(self.decon_ims.T), imagej=True)
+            tf.imsave(str(file_name[0]) + '_rfactor.tiff', np.float32(self.rfactor.T), imagej=True)
         except:
             logger.error('No file to save')
             pass
@@ -273,26 +297,6 @@ class XANESViewer(QtWidgets.QMainWindow):
         exporter.parameters()['columnMode'] = '(x,y,y,y) for all plots'
         file_name = QFileDialog().getSaveFileName(self, "save spectrum", '', 'spectrum and fit (*csv)')
         exporter.export(str(file_name[0])+'.csv')
-
-
-
-    '''
-    def display_rgb(self):
-        self.image_view_maps.clear()
-        clrs = ['r','g','k']
-        for ii in range(3):
-            self.image_view_maps.addItem(self.im_stack[ii])
-            self.image_view_maps.setPredefinedGradient('thermal')
-    
-
-    def reset_roi(self):
-        self.image_view.removeItem(self.image_roi)
-        self.image_roi = pg.PolyLineROI([[0,0], [0,self.sz], [self.sz,self.sz], [self.sz,0]],
-                                        pos =(int(self.dim2 // 2), int(self.dim3 // 2)), closed=True)
-        self.image_roi.addRotateHandle([self.sz // 2, self.sz // 2], [2, 2])
-
-    '''
-
 
 class RefChooser(QtWidgets.QMainWindow):
     signal: pyqtSignal = QtCore.pyqtSignal(list)
@@ -319,7 +323,29 @@ class RefChooser(QtWidgets.QMainWindow):
         self.pb_apply.setText("Apply")
         self.gridLayout.addWidget(self.pb_apply, len(self.ref_names) + 1, 0, 1, 1)
         self.pb_apply.setEnabled(False)
+
+        self.pb_combo = QtWidgets.QPushButton(self.centralwidget)
+        self.pb_combo.setText("Try All Combinations")
+        self.pb_combo.setSizePolicy(QtWidgets.QSizePolicy.Fixed, QtWidgets.QSizePolicy.Fixed)
+        self.gridLayout.addWidget(self.pb_combo, len(self.ref_names) + 2, 0, 1, 1)
+
+        self.lb = QtWidgets.QLabel(self.centralwidget)
+        self.lb.setText("Combo of:")
+        self.lb.setSizePolicy(QtWidgets.QSizePolicy.Fixed, QtWidgets.QSizePolicy.Fixed)
+        self.gridLayout.addWidget(self.lb, len(self.ref_names) + 2, 1, 1, 1)
+
+        self.sb_max_combo = QtWidgets.QSpinBox(self.centralwidget)
+        self.sb_max_combo.setValue(2)
+        self.sb_max_combo.setSizePolicy(QtWidgets.QSizePolicy.Fixed, QtWidgets.QSizePolicy.Fixed)
+        self.gridLayout.addWidget(self.sb_max_combo, len(self.ref_names) + 2, 2, 1, 1)
+
+        self.sb_time_delay = QtWidgets.QSpinBox(self.centralwidget)
+        self.sb_time_delay.setValue(2)
+        self.sb_time_delay.setSizePolicy(QtWidgets.QSizePolicy.Fixed, QtWidgets.QSizePolicy.Fixed)
+        self.gridLayout.addWidget(self.sb_time_delay, len(self.ref_names) + 2, 4, 1, 1)
+
         self.pb_apply.clicked.connect(self.clickedWhichAre)
+        self.pb_combo.clicked.connect(self.tryAllCombo)
 
     def clickedWhich(self):
         button_name = self.sender()
@@ -336,6 +362,16 @@ class RefChooser(QtWidgets.QMainWindow):
         self.populateChecked()
         self.signal.emit(self.onlyCheckedBoxes)
 
+    QtCore.pyqtSlot()
+    def tryAllCombo(self):
+        from itertools import combinations
+        self.iter_list = list(combinations(self.ref_names[1:],self.sb_max_combo.value()))
+
+        for n, refs in enumerate(self.iter_list):
+            self.statusbar.showMessage(f"{n+1}/{len(self.iter_list)}")
+            self.signal.emit(list((str(self.ref_names[0]),)+refs))
+            QtTest.QTest.qWait(self.sb_time_delay.value()*1000)
+
     def enableApply(self):
         self.populateChecked()
         if len(self.onlyCheckedBoxes)>1:
@@ -350,10 +386,24 @@ class ScatterPlot(QtWidgets.QMainWindow):
         super(ScatterPlot, self).__init__()
 
         uic.loadUi('uis/ScatterView.ui', self)
+        self.clearPgPlot()
         self.w1 = self.scatterViewer.addPlot()
         self.img1 = img1
         self.img2 = img2
+
         self.s1 = pg.ScatterPlotItem(size=2, pen=pg.mkPen(None), brush=pg.mkBrush(255, 255, 0, 120))
+        '''
+        points = []
+        
+        for i in range(len(self.img1.flatten())):
+            x = self.img1.flatten()[i]
+            y = self.img2.flatten()[i]
+            points.append({'pos': (x,y), 'data': 'id', 'size': 3, 'pen': pg.mkPen(None),
+                           'brush': pg.mkBrush(255, 255, 0, 120)})
+                           
+        self.s1.addPoints(points)
+        '''
+
         self.s1.setData(self.img1.flatten(),self.img2.flatten())
         self.w1.setLabel('bottom','Image ROI')
         self.w1.setLabel('left', 'Math ROI')
@@ -372,6 +422,8 @@ class ScatterPlot(QtWidgets.QMainWindow):
         # connections
         self.actionSave_Plot.triggered.connect(self.pg_export_correlation)
         self.actionSave_Images.triggered.connect(self.tiff_export_images)
+        self.pb_define_mask.clicked.connect(self.createMask)
+        self.pb_apply_mask.clicked.connect(self.getMaskRegion)
 
     def pg_export_correlation(self):
 
@@ -385,6 +437,50 @@ class ScatterPlot(QtWidgets.QMainWindow):
         file_name = QFileDialog().getSaveFileName(self, "save images", '', 'spectrum and fit (*tiff)')
         tf.imsave(str(file_name[0]) + '.tiff', np.dstack([self.img1,self.img2]).T)
         self.statusbar.showMessage(f"Images saved to {str(file_name[0])}")
+
+    def createMask(self):
+
+        self.size = self.img1.max()/10
+        self.pos = int(self.img1.mean())
+
+        self.scatter_mask = pg.PolyLineROI([[0, 0], [0, self.size], [self.size, self.size], [self.size, 0]],
+                                             pos=(self.pos, self.pos), pen='r', closed=True,removable = True)
+
+        self.w1.addItem(self.scatter_mask)
+
+    def resetMask(self):
+        self.w1.removeItem(self.scatter_mask)
+        self.createMask()
+
+    def clearPgPlot(self):
+        try:
+            self.masked_img.close()
+        except:
+            pass
+
+
+    def getMaskRegion(self):
+
+        # Ref : https://stackoverflow.com/questions/57719303/how-to-map-mouse-position-on-a-scatterplot
+
+        roiShape = self.scatter_mask.mapToItem(self.s1, self.scatter_mask.shape())
+        self._points = list()
+        for i in range(len(self.img1.flatten())):
+            self._points.append(QtCore.QPointF(self.img1.flatten()[i], self.img2.flatten()[i]))
+
+
+        selected = [roiShape.contains(pt) for pt in self._points]
+        img_selected = np.reshape(selected, (self.img1.shape))
+
+        self.clearPgPlot()
+        self.masked_img = pg.image()
+        self.masked_img.setImage(img_selected * self.img1)
+        self.masked_img.setPredefinedGradient('bipolar')
+        self.masked_img.setWindowTitle("Masked Image")
+
+
+
+
 
 
 

@@ -1,7 +1,7 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <ui version="4.0">
- <class>hs_component_number</class>
- <widget class="QMainWindow" name="hs_component_number">
+ <class>MainWindow</class>
+ <widget class="QMainWindow" name="MainWindow">
   <property name="geometry">
    <rect>
     <x>0</x>
@@ -23,6 +23,64 @@
    <string notr="true">background-color: rgb(240, 240, 240);</string>
   </property>
   <widget class="QWidget" name="centralwidget">
+   <property name="styleSheet">
+    <string notr="true">
+/*  HANDLE BAR VERTICAL */
+QScrollBar::handle:horizontal {	
+	background-color: rgb(80, 80, 122);
+	min-height: 30px;
+	border-radius: 7px;
+}
+QScrollBar::handle:horizontal:hover{	
+	background-color: rgb(255, 0, 127);
+}
+QScrollBar::handle:vertical:pressed {	
+	background-color: rgb(185, 0, 92);
+}
+
+/* BTN TOP - SCROLLBAR */
+QScrollBar::sub-line:horizontal {
+	border: none;
+	background-color: rgb(59, 59, 90);
+	height: 15px;
+	border-top-left-radius: 7px;
+	border-top-right-radius: 7px;
+	subcontrol-position: top;
+	subcontrol-origin: margin;
+}
+QScrollBar::sub-line:horizontal:hover {	
+	background-color: rgb(255, 0, 127);
+}
+QScrollBar::sub-line:horizontal:pressed {	
+	background-color: rgb(185, 0, 92);
+}
+
+/* BTN BOTTOM - SCROLLBAR */
+QScrollBar::add-line:horizontal {
+	border: none;
+	background-color: rgb(59, 59, 90);
+	height: 15px;
+	border-bottom-left-radius: 7px;
+	border-bottom-right-radius: 7px;
+	subcontrol-position: bottom;
+	subcontrol-origin: margin;
+}
+QScrollBar::add-line:horizontal:hover {	
+	background-color: rgb(255, 0, 127);
+}
+QScrollBar::add-line:horizontal:pressed {	
+	background-color: rgb(185, 0, 92);
+}
+
+/* RESET ARROW */
+QScrollBar::up-arrow:horizontal, QScrollBar::down-arrow:vertical {
+	background: none;
+}
+QScrollBar::add-page:horizontal, QScrollBar::sub-page:vertical {
+	background: none;
+}
+</string>
+   </property>
    <layout class="QGridLayout" name="gridLayout_9">
     <item row="0" column="0">
      <layout class="QGridLayout" name="gridLayout_8">
