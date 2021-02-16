@@ -25,6 +25,14 @@ class midasWindow(QtWidgets.QMainWindow):
         self.energy = energy
         self.refs = refs
 
+        self.plt_colors = ['g', 'r', 'c', 'm', 'y', 'w','b',
+                           pg.mkPen(70, 5, 80),pg.mkPen(255, 85, 130),
+                           pg.mkPen(0, 85, 130),pg.mkPen(255, 170, 60)]
+
+        self.plt_colors = ['g', 'r', 'c', 'm', 'y', 'w','b',
+                           (70, 5, 80),(255, 85, 130),
+                           (0, 85, 130),(255, 170, 60)]
+
         self.actionOpen_Image_Data.triggered.connect(self.browse_file)
         self.actionOpen_Multiple_Files.triggered.connect(self.load_mutliple_files)
         self.actionSave_as.triggered.connect(self.save_stack)
@@ -75,11 +83,32 @@ class midasWindow(QtWidgets.QMainWindow):
         self.file_name = (str(filename[0]))
 
         # if user decides to cancel the file window gui returns to original state
-        if not len(filename[0]) == 0:
+        if self.file_name:
             self.reset_and_load_stack()
+
         else:
             self.statusbar_main.showMessage("No file has selected")
             pass
+
+    def autoEnergyLoader(self):
+
+        dir_, filename_ = os.path.split(self.file_name)
+        self.efilePath_name = os.path.join(dir_, os.path.splitext(filename_)[0] + '.txt')
+        self.efilePath_log = os.path.join(dir_, 'maps_log_tiff.txt')
+
+        if os.path.isfile(self.efilePath_name):
+            self.efilePath = self.efilePath_name
+            self.efileLoader()
+            self.statusbar_main.showMessage(f"Energy File detected {self.efilePath}")
+
+        elif os.path.isfile(self.efilePath_log):
+            self.efilePath = self.efilePath_log
+            self.efileLoader()
+            self.statusbar_main.showMessage(f"Energy File detected {self.efilePath}")
+
+        else:
+            self.efilePath = None
+
 
     def load_mutliple_files(self):
         """ User can load multiple/series of tiff images with same shape.
@@ -144,6 +173,7 @@ class midasWindow(QtWidgets.QMainWindow):
             elif self.file_name.endswith('.tiff') or self.file_name.endswith('.tif'):
                 self.im_stack = tf.imread(self.file_name).transpose(0, 2, 1)
                 self.sb_zrange2.setValue(self.im_stack.shape[0])
+                self.autoEnergyLoader()
                 self.avgIo = 1
 
             else:
@@ -381,6 +411,89 @@ class midasWindow(QtWidgets.QMainWindow):
         self.rb_rect_roi.clicked.connect(self.setImageROI)
         self.rb_line_roi.clicked.connect(self.setImageROI)
         self.rb_circle_roi.clicked.connect(self.setImageROI)
+
+    def select_elist(self):
+        self.energyFileChooser()
+        self.efileLoader()
+
+    def efileLoader(self):
+
+        try:
+
+            if self.efilePath:
+
+                if str(self.efilePath).endswith('log_tiff.txt'):
+                    self.energy = energy_from_logfile(logfile=str(self.efilePath))
+                    logger.info("Log file from pyxrf processing")
+
+                else:
+                    self.energy = np.loadtxt(str(self.efilePath))
+
+            else:
+                self.statusbar_main.showMessage("No Energy List Selected")
+
+            logger.info('Energy file loaded')
+
+            if self.energy.any():
+                self.change_color_on_load(self.pb_elist_xanes)
+
+            assert len(self.energy) == self.dim1, "Number of Energy Points is not equal to stack length"
+
+            if self.energy.max() < 100:
+                self.cb_kev_flag.setChecked(True)
+                self.energy *= 1000
+
+            else:
+                self.cb_kev_flag.setChecked(False)
+
+            self.view_stack()
+
+        except:
+            logger.error('Unknown Data Format')
+            pass
+
+    def select_ref_file(self):
+        self.pb_xanes_fit.setEnabled(True)
+        self.ref_names = []
+        file_name = QFileDialog().getOpenFileName(self, "Open reference file", '', 'text file (*.txt *.nor)')
+        try:
+            if file_name[0].endswith('.nor'):
+                self.refs, self.ref_names = create_df_from_nor_try2(athenafile=str(file_name[0]))
+                self.change_color_on_load(self.pb_ref_xanes)
+
+            elif file_name[0].endswith('.txt'):
+                self.refs = pd.read_csv(str(file_name[0]), header=None, delim_whitespace=True)
+                self.change_color_on_load(self.pb_ref_xanes)
+
+        except OSError:
+            logger.error('No file selected')
+            pass
+
+        except:
+            logger.error('Unsupported file format')
+            pass
+
+        self.plt_xanes_refs()
+
+    def plt_xanes_refs(self):
+
+        try:
+            self.ref_plot.close()
+
+        except:
+            pass
+
+        self.ref_plot = pg.plot(title = "Reference Standards")
+        self.ref_plot.setLabel("bottom","Energy")
+        self.ref_plot.setLabel("left","Intensity")
+        self.ref_plot.addLegend()
+
+        for n in range(np.shape(self.refs)[1]):
+
+            if not n == 0:
+                self.ref_plot.plot(self.refs.values[:, 0], self.refs.values[:, n],
+                                   pen = pg.mkPen(self.plt_colors[n-1], width = 2),name = self.ref_names[n])
+
 
     def getPointSpectrum(self, event):
 
@@ -711,72 +824,9 @@ class midasWindow(QtWidgets.QMainWindow):
     def change_color_on_load(self, button_name):
         button_name.setStyleSheet("background-color : green")
 
-    def select_elist(self):
+    def energyFileChooser(self):
         file_name = QFileDialog().getOpenFileName(self, "Open energy list", '', 'text file (*.txt)')
-
-        try:
-
-            if file_name[0]:
-
-                if str(file_name[0]).endswith('log_tiff.txt'):
-                    self.energy = energy_from_logfile(logfile=str(file_name[0]))
-                    logger.info("Log file from pyxrf processing")
-
-                else:
-                    self.energy = np.loadtxt(str(file_name[0]))
-
-            else:
-                self.statusbar_main.showMessage("No Energy List Selected")
-
-            logger.info('Energy file loaded')
-
-            if self.energy.any():
-                self.change_color_on_load(self.pb_elist_xanes)
-
-            assert len(self.energy) == self.dim1, "Number of Energy Points is not equal to stack length"
-
-            if self.energy.max() < 100:
-                self.cb_kev_flag.setChecked(True)
-                self.energy *= 1000
-
-            else:
-                self.cb_kev_flag.setChecked(False)
-
-            self.view_stack()
-
-        except:
-            logger.error('Unknown Data Format')
-            pass
-
-    def select_ref_file(self):
-        self.pb_xanes_fit.setEnabled(True)
-        self.ref_names = []
-        file_name = QFileDialog().getOpenFileName(self, "Open reference file", '', 'text file (*.txt *.nor)')
-        try:
-            if file_name[0].endswith('.nor'):
-                self.refs, self.ref_names = create_df_from_nor_try2(athenafile=str(file_name[0]))
-                self.change_color_on_load(self.pb_ref_xanes)
-
-            elif file_name[0].endswith('.txt'):
-                self.refs = pd.read_csv(str(file_name[0]), header=None, delim_whitespace=True)
-                self.change_color_on_load(self.pb_ref_xanes)
-
-            self.plt_xanes_refs()
-
-        except OSError:
-            logger.error('No file selected')
-            pass
-
-        except:
-            logger.error('Unsupported file format')
-            pass
-
-    def plt_xanes_refs(self):
-        plt.figure()
-        plt.plot(self.refs.values[:, 0], self.refs.values[:, 1:])
-        plt.title("Reference Standards")
-        plt.xlabel("Energy")
-        plt.show()
+        self.efilePath = file_name[0]
 
     def fast_xanes_fitting(self):
 

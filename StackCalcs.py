@@ -4,9 +4,10 @@ import scipy.stats as stats
 import scipy.optimize as opt
 import sklearn.decomposition as sd
 import sklearn.cluster as sc
-import matplotlib.pyplot as plt
+import pyqtgraph as pg
 import h5py
 import logging
+from PyQt5 import QtCore
 from scipy.signal import savgol_filter
 from skimage.transform import resize
 
@@ -311,11 +312,10 @@ def kmeans_variance(im_array):
         var_ = init_cluster.inertia_
         var[clust] = np.float64(var_)
 
-    plt.plot(clust_n, var, 'ro-')
-    plt.xlabel('n_clusters')
-    plt.ylabel('Sum of squared distances')
-    plt.title('KMeans Variance')
-    plt.show()
+    kmeans_var_plot = pg.plot(clust_n, var , title = 'KMeans Variance',
+                              pen = pg.mkPen('y', width=2, style=QtCore.Qt.DotLine), symbol='o')
+    kmeans_var_plot.setLabel('bottom', 'Cluster Number')
+    kmeans_var_plot.setLabel('left', 'Sum of squared distances')
 
 
 def pca_scree(im_stack):
@@ -325,12 +325,11 @@ def pca_scree(im_stack):
     pca = sd.PCA(z)
     pca.fit(img_)
     var = pca.explained_variance_ratio_
-    plt.figure()
-    plt.plot(var[:24], '-or')
-    plt.xlabel('Principal Component')
-    plt.ylabel('Varience Ratio')
-    plt.title('PCA Scree Plot')
-    plt.show()
+
+    pca_scree_plot = pg.plot(var[:24], title = 'PCA Scree Plot',
+                              pen = pg.mkPen('y', width=2, style=QtCore.Qt.DotLine), symbol='o')
+    pca_scree_plot.setLabel('bottom', 'Component Number')
+    pca_scree_plot.setLabel('left', 'Explained Varience Ratio')
 
 
 def decompose_stack(im_stack, decompose_method='PCA', n_components_=3):

@@ -122,7 +122,7 @@ border-radius: 4px;
          <x>0</x>
          <y>0</y>
          <width>321</width>
-         <height>867</height>
+         <height>855</height>
         </rect>
        </property>
        <layout class="QGridLayout" name="gridLayout_9">
@@ -161,8 +161,8 @@ color: rgb(255, 0, 127);
             <rect>
              <x>0</x>
              <y>0</y>
-             <width>310</width>
-             <height>351</height>
+             <width>368</width>
+             <height>331</height>
             </rect>
            </property>
            <attribute name="label">
@@ -506,8 +506,8 @@ color: rgb(255, 0, 127);
             <rect>
              <x>0</x>
              <y>0</y>
-             <width>278</width>
-             <height>424</height>
+             <width>299</width>
+             <height>462</height>
             </rect>
            </property>
            <attribute name="label">
@@ -807,8 +807,8 @@ color: rgb(255, 0, 127);
             <rect>
              <x>0</x>
              <y>0</y>
-             <width>299</width>
-             <height>181</height>
+             <width>298</width>
+             <height>189</height>
             </rect>
            </property>
            <attribute name="label">
@@ -945,8 +945,8 @@ color: rgb(255, 0, 127);
             <rect>
              <x>0</x>
              <y>0</y>
-             <width>299</width>
-             <height>179</height>
+             <width>308</width>
+             <height>185</height>
             </rect>
            </property>
            <attribute name="label">
@@ -1071,7 +1071,7 @@ color: rgb(255, 0, 127);
              <x>0</x>
              <y>0</y>
              <width>299</width>
-             <height>184</height>
+             <height>156</height>
             </rect>
            </property>
            <attribute name="label">
@@ -1607,7 +1607,7 @@ color: rgb(255, 0, 127);</string>
      <x>0</x>
      <y>0</y>
      <width>1246</width>
-     <height>23</height>
+     <height>29</height>
     </rect>
    </property>
    <widget class="QMenu" name="menuManual">
@@ -1638,7 +1638,33 @@ color: rgb(255, 0, 127);</string>
     <addaction name="actionOpen_Mask_Gen"/>
     <addaction name="actionAlign_Stack"/>
    </widget>
+   <widget class="QMenu" name="menuView">
+    <property name="title">
+     <string>View</string>
+    </property>
+    <widget class="QMenu" name="menuPlot_Background">
+     <property name="title">
+      <string>Plot Background</string>
+     </property>
+     <addaction name="actionBlack"/>
+     <addaction name="actionWhite"/>
+     <addaction name="actionRed"/>
+     <addaction name="actionYellow"/>
+     <addaction name="actionGreen"/>
+    </widget>
+    <widget class="QMenu" name="menuBackground">
+     <property name="title">
+      <string>Background</string>
+     </property>
+     <addaction name="actionGray"/>
+     <addaction name="actionBlack_2"/>
+     <addaction name="actionWhite_2"/>
+    </widget>
+    <addaction name="menuBackground"/>
+    <addaction name="menuPlot_Background"/>
+   </widget>
    <addaction name="menuFile"/>
+   <addaction name="menuView"/>
    <addaction name="menuMask"/>
    <addaction name="menuManual"/>
   </widget>
@@ -1745,7 +1771,7 @@ color: rgb(255, 0, 127);</string>
   </action>
   <action name="actionOpen_Multiple_Files">
    <property name="text">
-    <string>Open Multiple Files</string>
+    <string>Create a Virtual Stack</string>
    </property>
    <property name="toolTip">
     <string>Create a stack from multiple tiff images of same shape</string>
@@ -1781,6 +1807,58 @@ color: rgb(255, 0, 127);</string>
    </property>
    <property name="toolTip">
     <string>A new window will be opened to align images in a stack</string>
+   </property>
+  </action>
+  <action name="actionWhite">
+   <property name="text">
+    <string>White</string>
+   </property>
+  </action>
+  <action name="actionBlack">
+   <property name="checkable">
+    <bool>true</bool>
+   </property>
+   <property name="checked">
+    <bool>true</bool>
+   </property>
+   <property name="text">
+    <string>Black</string>
+   </property>
+  </action>
+  <action name="actionRed">
+   <property name="text">
+    <string>Red</string>
+   </property>
+  </action>
+  <action name="actionYellow">
+   <property name="text">
+    <string>Yellow</string>
+   </property>
+  </action>
+  <action name="actionGreen">
+   <property name="text">
+    <string>Green</string>
+   </property>
+  </action>
+  <action name="actionGray">
+   <property name="checkable">
+    <bool>true</bool>
+   </property>
+   <property name="checked">
+    <bool>true</bool>
+   </property>
+   <property name="text">
+    <string>Gray</string>
+   </property>
+  </action>
+  <action name="actionBlack_2">
+   <property name="text">
+    <string>Black</string>
+   </property>
+  </action>
+  <action name="actionWhite_2">
+   <property name="text">
+    <string>White</string>
    </property>
   </action>
  </widget>
