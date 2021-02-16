@@ -5,6 +5,6 @@ A software suite to load and analysis imaging and spectrosocpy data collected at
 ## See the Wiki for tutorials 
 
 
-![alt text](https://github.com/pattammattel/NSLS-II-MIDAS/blob/main/Midas_view.JPG)
+![MIDAS Preview](https://github.com/pattammattel/NSLS-II-MIDAS/blob/main/Screenshots/Midas_Preview.JPG)
 
  
