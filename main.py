@@ -853,7 +853,7 @@ if __name__ == "__main__":
     logger.addHandler(stream_handler)
 
     app = QtWidgets.QApplication(sys.argv)
-    app.setAttribute(QtCore.Qt.AA_Use96Dpi)
+    #app.setAttribute(QtCore.Qt.AA_Use96Dpi)
     window = midasWindow()
     window.show()
     sys.exit(app.exec_())
