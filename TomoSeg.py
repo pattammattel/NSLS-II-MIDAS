@@ -38,9 +38,7 @@ def kmeans_seg(im_stack, decompose_method='PCA', n_components_=3):
 
     return np.float32(ims)
 
-#img = tf.imread('test_stack.tiff')
 
-img = tf.imread(r'C:\Users\pattammattel\Desktop\Tomograpghy\Carr_Tomo\PartialReset\ptycho\recon_PartialReset_ARG_MLEM50.tiff')
 
 
 
