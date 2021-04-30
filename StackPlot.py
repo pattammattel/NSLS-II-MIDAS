@@ -19,20 +19,27 @@ logger = logging.getLogger()
 
 
 class singleStackViewer(QtWidgets.QMainWindow):
-    def __init__(self,  img_stack):
+    def __init__(self,  img_stack, gradient = 'viridis'):
         super(singleStackViewer, self).__init__()
 
         # Load the UI Page
         uic.loadUi('uis/singleStackView.ui', self)
 
-        self.image_view.setPredefinedGradient('viridis')
+
         self.image_view.ui.menuBtn.hide()
         self.image_view.ui.roiBtn.hide()
 
         self.img_stack = img_stack
-        self.dim1, self.dim3, self.dim2 = img_stack.shape
+        self.gradient = gradient
+        self.image_view.setPredefinedGradient(gradient)
+
+        if self.img_stack.ndim == 3:
+            self.dim1, self.dim3, self.dim2 = img_stack.shape
+        elif self.img_stack.ndim == 2:
+            self.dim3, self.dim2 = img_stack.shape
+            self.dim1 = 1
         self.hs_img_stack.setMaximum(self.dim1-1)
-        self.hs_img_stack.setValue(int(self.dim1/2))
+        self.hs_img_stack.setValue(np.round(self.dim1/2))
         self.displayStack()
 
         #connections
@@ -41,13 +48,19 @@ class singleStackViewer(QtWidgets.QMainWindow):
 
     def displayStack(self):
         im_index = self.hs_img_stack.value()
-        self.image_view.setImage(self.img_stack[im_index])
+        if self.img_stack.ndim == 2:
+            self.image_view.setImage(self.img_stack)
+        else:
+            self.image_view.setImage(self.img_stack[im_index])
         self.label_img_count.setText(f'{im_index+1}/{self.dim1}')
 
     def saveImageStackAsTIFF(self):
-        file_name = QFileDialog().getSaveFileName(self, "", '', 'data(*tiff *tif *txt *png )')
+        file_name = QFileDialog().getSaveFileName(self, "", '', '*.tiff;;*.tif')
         if file_name[0]:
-            tf.imsave(str(file_name[0]), np.float32(self.img_stack.transpose(0, 2, 1)))
+            if self.img_stack.ndim == 3:
+                tf.imsave(str(file_name[0]), np.float32(self.img_stack.transpose(0, 2, 1)))
+            elif self.img_stack.ndim == 2:
+                tf.imsave(str(file_name[0]), np.float32(self.img_stack.T))
         else:
             pass
 
@@ -653,7 +666,6 @@ class ScatterPlot(QtWidgets.QMainWindow):
         except:
             pass
 
-
     def getMaskRegion(self):
 
         # Ref : https://stackoverflow.com/questions/57719303/how-to-map-mouse-position-on-a-scatterplot
@@ -667,12 +679,8 @@ class ScatterPlot(QtWidgets.QMainWindow):
         selected = [roiShape.contains(pt) for pt in self._points]
         img_selected = np.reshape(selected, (self.img1.shape))
 
-        self.clearPgPlot()
-        self.masked_img = pg.image()
-        self.masked_img.setImage(img_selected * self.img1)
-        self.masked_img.setPredefinedGradient('bipolar')
-        self.masked_img.setWindowTitle("Masked Image")
-
+        self.masked_img = singleStackViewer(img_selected * self.img1, gradient='bipolar')
+        self.masked_img.show()
 
 class LoadingScreen(QtWidgets.QSplashScreen):
     def __init__(self):

@@ -257,7 +257,9 @@ class midasWindow(QtWidgets.QMainWindow):
             self.statusbar_main.showMessage(f"Energy File detected {self.efilePath}")
 
         else:
-            self.efilePath = None
+            self.efilePath = False
+            self.efileLoader()
+
 
     def load_mutliple_files(self):
         """ User can load multiple/series of tiff images with same shape.
@@ -572,14 +574,13 @@ class midasWindow(QtWidgets.QMainWindow):
 
             else:
                 self.energy = np.loadtxt(str(self.efilePath))
+            self.change_color_on_load(self.pb_elist_xanes)
+            logger.info('Energy file loaded')
 
         else:
-            self.statusbar_main.showMessage("No Energy List Selected")
-
-        logger.info('Energy file loaded')
-
-        if self.energy.any():
-            self.change_color_on_load(self.pb_elist_xanes)
+            self.statusbar_main.showMessage("No Energy List Selected, Setting Arbitary Axis")
+            self.energy = np.arange(self.im_stack.shape[0])
+            logger.info('Arbitary Energy Axis')
 
         # assert len(self.energy) == self.dim1, "Number of Energy Points is not equal to stack length"
 
