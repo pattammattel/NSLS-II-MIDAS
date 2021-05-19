@@ -3,7 +3,7 @@
 # Author: Ajith Pattammattel
 # First Version on:06-23-2020
 
-import logging, sys, webbrowser, traceback
+import logging, sys, webbrowser, traceback,os
 
 from PyQt5 import QtWidgets, uic, QtCore
 from PyQt5.QtWidgets import QMessageBox, QFileDialog, QDesktopWidget, QApplication, QSizePolicy
@@ -25,8 +25,8 @@ class midasWindow(QtWidgets.QMainWindow):
 
     def __init__(self, im_stack=None, energy=[], refs=[]):
         super(midasWindow, self).__init__()
-        uic.loadUi('uis/mainwindow_admin.ui', self)
-
+        ui_path = os.path.dirname(os.path.abspath(__file__))
+        uic.loadUi(os.path.join(ui_path,'uis/mainwindow_admin.ui'), self)
         self.im_stack = im_stack
         self.updated_stack = self.im_stack
         self.energy = energy
