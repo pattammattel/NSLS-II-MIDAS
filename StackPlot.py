@@ -23,7 +23,8 @@ class singleStackViewer(QtWidgets.QMainWindow):
         super(singleStackViewer, self).__init__()
 
         # Load the UI Page
-        uic.loadUi('uis/singleStackView.ui', self)
+        ui_path = os.path.dirname(os.path.abspath(__file__))
+        uic.loadUi(os.path.join(ui_path,'uis/singleStackView.ui'), self)
 
 
         self.image_view.ui.menuBtn.hide()
@@ -71,7 +72,8 @@ class ComponentViewer(QtWidgets.QMainWindow):
         super(ComponentViewer, self).__init__()
 
         # Load the UI Page
-        uic.loadUi('uis/ComponentView.ui', self)
+        ui_path = os.path.dirname(os.path.abspath(__file__))
+        uic.loadUi(os.path.join(ui_path,'uis/ComponentView.ui'), self)
 
         self.comp_stack = comp_stack
         self.energy = energy
@@ -139,7 +141,8 @@ class ClusterViewer(QtWidgets.QMainWindow):
         super(ClusterViewer, self).__init__()
 
         # Load the UI Page
-        uic.loadUi('uis/ClusterView.ui', self)
+        ui_path = os.path.dirname(os.path.abspath(__file__))
+        uic.loadUi(os.path.join(ui_path,'uis/ClusterView.ui'), self)
 
         self.decon_images = decon_images
         self.energy = energy
@@ -192,8 +195,8 @@ class XANESViewer(QtWidgets.QMainWindow):
 
     def __init__(self, im_stack=None, e_list = None, refs = None, ref_names = None):
         super(XANESViewer, self).__init__()
-
-        uic.loadUi('uis/XANESViewer.ui', self)
+        ui_path = os.path.dirname(os.path.abspath(__file__))
+        uic.loadUi(os.path.join(ui_path,'uis/XANESViewer.ui'), self)
         self.centralwidget.setStyleSheet(open('defaultStyle.css').read())
 
         self.im_stack = im_stack
@@ -405,7 +408,8 @@ class RefChooser(QtWidgets.QMainWindow):
 
     def __init__(self, ref_names,im_stack,e_list, refs, e_shift, fit_model):
         super(RefChooser, self).__init__()
-        uic.loadUi('uis/RefChooser.ui', self)
+        ui_path = os.path.dirname(os.path.abspath(__file__))
+        uic.loadUi(os.path.join(ui_path,'uis/RefChooser.ui'), self)
         self.ref_names = ref_names
         self.refs = refs
         self.im_stack = im_stack
@@ -586,8 +590,8 @@ class ScatterPlot(QtWidgets.QMainWindow):
 
     def __init__(self, img1, img2):
         super(ScatterPlot, self).__init__()
-
-        uic.loadUi('uis/ScatterView.ui', self)
+        ui_path = os.path.dirname(os.path.abspath(__file__))
+        uic.loadUi(os.path.join(ui_path,'uis/ScatterView.ui'), self)
         self.clearPgPlot()
         self.w1 = self.scatterViewer.addPlot()
         self.img1 = img1
@@ -685,9 +689,10 @@ class ScatterPlot(QtWidgets.QMainWindow):
 class LoadingScreen(QtWidgets.QSplashScreen):
     def __init__(self):
         super(LoadingScreen, self).__init__()
-        uic.loadUi('uis/animationWindow.ui', self)
+        ui_path = os.path.dirname(os.path.abspath(__file__))
+        uic.loadUi(os.path.join(ui_path,'uis/animationWindow.ui'), self)
         self.setWindowOpacity(0.65)
-        self.movie = QMovie("uis/animation.gif")
+        self.movie = QMovie(os.path.join(ui_path,"uis/animation.gif"))
         self.label.setMovie(self.movie)
 
     def mousePressEvent(self, event):
