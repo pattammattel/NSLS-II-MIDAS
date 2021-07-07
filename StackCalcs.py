@@ -8,7 +8,7 @@ import pyqtgraph as pg
 import h5py
 import logging
 import tifffile as tf
-
+import larch
 from larch.xafs import preedge
 from pystackreg import StackReg
 from PyQt5 import QtCore
