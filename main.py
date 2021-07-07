@@ -3,7 +3,7 @@
 # Author: Ajith Pattammattel
 # First Version on:06-23-2020
 
-import logging, sys, webbrowser, traceback,os
+import logging, sys, webbrowser, traceback
 
 from PyQt5 import QtWidgets, uic, QtCore
 from PyQt5.QtWidgets import QMessageBox, QFileDialog, QDesktopWidget, QApplication, QSizePolicy
@@ -11,8 +11,11 @@ from PyQt5.QtCore import QObject, QTimer, QThread, pyqtSignal, pyqtSlot, QRunnab
 from StackPlot import *
 from StackCalcs import *
 from MaskView import *
+from stackInfo import *
 
 logger = logging.getLogger()
+
+ui_path = os.path.dirname(os.path.abspath(__file__))
 
 if hasattr(QtCore.Qt, 'AA_EnableHighDpiScaling'):
     QtWidgets.QApplication.setAttribute(QtCore.Qt.AA_EnableHighDpiScaling, True)
@@ -25,10 +28,8 @@ class midasWindow(QtWidgets.QMainWindow):
 
     def __init__(self, im_stack=None, energy=[], refs=[]):
         super(midasWindow, self).__init__()
-        ui_path = os.path.dirname(os.path.abspath(__file__))
-        uic.loadUi(os.path.join(ui_path,'uis/mainwindow_admin.ui'), self)
+        uic.loadUi(os.path.join(ui_path, 'uis/mainwindow_admin.ui'), self)
         self.im_stack = im_stack
-        self.updated_stack = self.im_stack
         self.energy = energy
         self.refs = refs
         self.loaded_tranform_file = []
@@ -37,10 +38,10 @@ class midasWindow(QtWidgets.QMainWindow):
 
         self.plt_colors = ['g', 'r', 'c', 'm', 'y', 'w', 'b',
                            pg.mkPen(70, 5, 80), pg.mkPen(255, 85, 130),
-                           pg.mkPen(0, 85, 130), pg.mkPen(255, 170, 60)]
+                           pg.mkPen(0, 85, 130), pg.mkPen(255, 170, 60)]*3
 
         self.actionOpen_Image_Data.triggered.connect(self.browse_file)
-        self.actionOpen_Multiple_Files.triggered.connect(self.load_mutliple_files)
+        self.actionOpen_Multiple_Files.triggered.connect(self.createVirtualStack)
         self.actionSave_as.triggered.connect(self.save_stack)
         self.actionExit.triggered.connect(self.close)
         self.actionOpen_in_GitHub.triggered.connect(self.open_github_link)
@@ -51,35 +52,47 @@ class midasWindow(QtWidgets.QMainWindow):
 
         self.actionOpen_Mask_Gen.triggered.connect(self.openMaskMaker)
         self.cb_transpose.stateChanged.connect(self.transpose_stack)
-        self.cb_log.stateChanged.connect(self.replot_image)
-        self.cb_rebin.stateChanged.connect(self.view_stack)
-        self.cb_upscale.stateChanged.connect(self.view_stack)
-        self.sb_scaling_factor.valueChanged.connect(self.view_stack)
-        self.cb_remove_edges.stateChanged.connect(self.view_stack)
-        self.cb_norm.stateChanged.connect(self.replot_image)
-        self.cb_smooth.stateChanged.connect(self.replot_image)
-        self.hs_smooth_size.valueChanged.connect(self.replot_image)
-        self.cb_remove_outliers.stateChanged.connect(self.replot_image)
-        self.cb_remove_bg.stateChanged.connect(self.replot_image)
-        self.hs_nsigma.valueChanged.connect(self.replot_image)
-        self.hs_bg_threshold.valueChanged.connect(self.replot_image)
-        self.pb_reset_img.clicked.connect(self.reset_and_load_stack)
+        self.pb_reset_img.clicked.connect(self.load_stack)
         self.pb_crop.clicked.connect(self.crop_to_dim)
         self.pb_crop.clicked.connect(self.view_stack)
+        self.sb_scaling_factor.valueChanged.connect(self.view_stack)
         self.pb_ref_xanes.clicked.connect(self.select_ref_file)
         self.pb_elist_xanes.clicked.connect(self.select_elist)
+
+        [uis.valueChanged.connect(self.replot_image) for uis in
+         [self.hs_smooth_size,self.hs_nsigma,self.hs_bg_threshold]]
+
+        [uis.stateChanged.connect(self.replot_image) for uis in
+         [self.cb_remove_bg,self.cb_remove_outliers,self.cb_smooth,
+           self.cb_norm,self.cb_log]]
+
+        [uis.stateChanged.connect(self.view_stack) for uis in
+         [self.cb_remove_edges,self.cb_upscale,
+          self.cb_rebin]]
+
+        #stack ingo
+        self.pb_stack_info.clicked.connect(self.displayStackInfo)
 
         # alignment
         self.pb_load_align_ref.clicked.connect(self.loadAlignRefImage)
         self.pb_loadAlignTranform.clicked.connect(self.importAlignTransformation)
         self.pb_saveAlignTranform.clicked.connect(self.exportAlignTransformation)
-        self.pb_alignStack.clicked.connect(self.StackRegThread)
+        self.pb_alignStack.clicked.connect(lambda:self.threadMaker(self.stackRegistration))
         #self.pb_alignStack.clicked.connect(self.stackRegistration)
 
         # save_options
         self.pb_save_disp_img.clicked.connect(self.save_disp_img)
         self.pb_save_disp_spec.clicked.connect(self.save_disp_spec)
         self.pb_show_roi.clicked.connect(self.getROIMask)
+        self.pb_addToCollector.clicked.connect(self.addSpectrumToCollector)
+        self.pb_collect_clear.clicked.connect(lambda:self.spectrum_view_collect.clear())
+        self.pb_saveCollectorPlot.clicked.connect(self.saveCollectorPlot)
+
+        #XANES Normalization
+        self.pb_apply_xanes_norm.clicked.connect(self.nomalizeLiveSpec)
+        self.pb_auto_Eo.clicked.connect(self.findEo)
+        self.pb_xanes_norm_vals.clicked.connect(self.initNormVals)
+        self.pb_apply_norm_to_stack.clicked.connect(lambda:self.threadMaker(self.normalizeStack))
 
         # Analysis
         self.pb_pca_scree.clicked.connect(self.pca_scree_)
@@ -92,16 +105,47 @@ class midasWindow(QtWidgets.QMainWindow):
         self.show()
 
         self.threadpool = QThreadPool()
-        print("Multithreading with maximum %d threads" % self.threadpool.maxThreadCount())
+        print(f"Multithreading with maximum  {self.threadpool.maxThreadCount()} threads")
 
     #View Options
     def darkMode(self):
-        self.centralwidget.setStyleSheet(open('darkStyle.css').read())
+        self.centralwidget.setStyleSheet(open(os.path.join(ui_path, 'darkStyle.css')).read())
 
     def defaultMode(self):
-        self.centralwidget.setStyleSheet(open('defaultStyle.css').read())
+        self.centralwidget.setStyleSheet(open(os.path.join(ui_path, 'defaultStyle.css')).read())
+
+    def threadMaker(self, funct):
+        # Pass the function to execute
+        worker = Worker(funct)  # Any other args, kwargs are passed to the run function
+        self.loadSplashScreen()
+        worker.signals.start.connect(self.splash.startAnimation)
+        worker.signals.result.connect(self.print_output)
+
+        list(map(worker.signals.finished.connect, [self.thread_complete, self.splash.stopAnimation,
+                                                   self.update_spectrum,self.update_image_roi]))
+
+        # Execute
+        self.threadpool.start(worker)
 
     #File Loading
+    def createVirtualStack(self):
+        """ User can load multiple/series of tiff images with same shape.
+        The 'self.load_stack()' recognizes 'self.filename as list and create the stack.
+        """
+        self.energy = []
+        filter = "TIFF (*.tiff);;TIF (*.tif)"
+        file_name = QFileDialog()
+        file_name.setFileMode(QFileDialog.ExistingFiles)
+        names = file_name.getOpenFileNames(self, "Open files", " ", filter)
+        if names[0]:
+
+            self.file_name = names[0]
+            self.load_stack()
+
+        else:
+            self.statusbar_main.showMessage("No file has selected")
+            pass
+
     def load_stack(self):
 
         """ load the image data from the selected file.
@@ -113,6 +157,20 @@ class midasWindow(QtWidgets.QMainWindow):
 
         The output 'self.im_stack' is the unmodified data file
         """
+
+        self.log_warning = False  # for the Qmessage box in cb_log
+        self.image_roi2_flag = False
+        self.cb_log.setChecked(False)
+        self.cb_remove_edges.setChecked(False)
+        self.cb_norm.setChecked(False)
+        self.cb_smooth.setChecked(False)
+        self.cb_remove_outliers.setChecked(False)
+        self.cb_remove_bg.setChecked(False)
+        self.cb_rebin.setChecked(False)
+        self.cb_upscale.setChecked(False)
+        self.sb_xrange1.setValue(0)
+        self.sb_yrange1.setValue(0)
+        self.sb_zrange1.setValue(0)
 
         self.menuMask.setEnabled(True)
         self.actionLoad_Energy.setEnabled(True)
@@ -159,10 +217,6 @@ class midasWindow(QtWidgets.QMainWindow):
             else:
                 logger.error('Unknown data format')
 
-        self.setStackParamsNDisplay()
-
-    def setStackParamsNDisplay(self):
-
         """ Fill the stack dimensions to the GUI and set the image dimensions as max values.
          This prevent user from choosing higher image dimensions during a resizing event"""
 
@@ -184,18 +238,6 @@ class midasWindow(QtWidgets.QMainWindow):
         logger.info("Stack displayed correctly")
         self.update_stack_info()
 
-        '''
-        try:
-
-            self.view_stack()
-            logger.info("Stack displayed correctly")
-            self.update_stack_info()
-
-        except:
-            logger.error("Trouble with stack display")
-            self.statusbar_main.showMessage("Error: Trouble with stack display")
-        '''
-
         logger.info(f'completed image shape {np.shape(self.im_stack)}')
 
         try:
@@ -204,26 +246,6 @@ class midasWindow(QtWidgets.QMainWindow):
         except AttributeError:
             self.statusbar_main.showMessage('New Stack is made from selected tiffs')
             pass
-
-    def resetStack(self):
-        self.log_warning = False  # for the Qmessage box in cb_log
-        self.image_roi2_flag = False
-        self.cb_log.setChecked(False)
-        self.cb_remove_edges.setChecked(False)
-        self.cb_norm.setChecked(False)
-        self.cb_smooth.setChecked(False)
-        self.cb_remove_outliers.setChecked(False)
-        self.cb_remove_bg.setChecked(False)
-        self.cb_rebin.setChecked(False)
-        self.cb_upscale.setChecked(False)
-        self.sb_xrange1.setValue(0)
-        self.sb_yrange1.setValue(0)
-        self.sb_zrange1.setValue(0)
-
-    def reset_and_load_stack(self):
-
-        self.resetStack()
-        self.load_stack()
 
     def browse_file(self):
         """ To open a file widow and choose the data file.
@@ -234,7 +256,7 @@ class midasWindow(QtWidgets.QMainWindow):
 
         # if user decides to cancel the file window gui returns to original state
         if self.file_name:
-            self.reset_and_load_stack()
+            self.load_stack()
 
         else:
             self.statusbar_main.showMessage("No file has selected")
@@ -260,24 +282,24 @@ class midasWindow(QtWidgets.QMainWindow):
             self.efilePath = False
             self.efileLoader()
 
+    def displayStackInfo(self):
 
-    def load_mutliple_files(self):
-        """ User can load multiple/series of tiff images with same shape.
-        The 'self.reset_and_load_stack()' recognizes 'self.filename as list and create the stack.
-        """
-        self.energy = []
-        filter = "TIFF (*.tiff);;TIF (*.tif)"
-        file_name = QFileDialog()
-        file_name.setFileMode(QFileDialog.ExistingFiles)
-        names = file_name.getOpenFileNames(self, "Open files", " ", filter)
-        if names[0]:
+        try:
 
-            self.file_name = names[0]
-            self.reset_and_load_stack()
+            if isinstance(self.file_name, list):
+                info = f'Folder; {os.path.dirname(self.file_name[0])} \n'
+                for n, name in enumerate(self.file_name):
+                    info += f'{n}: {os.path.basename(name)} \n'
 
-        else:
-            self.statusbar_main.showMessage("No file has selected")
-            pass
+                #info = f'Stack order; {[name for name in enumerate(self.file_name)]}'
+            else:
+                info = f'Stack; {self.file_name}'
+
+            self.infoWindow = StackInfo(str(info))
+            self.infoWindow.show()
+
+        except AttributeError:
+            self.statusbar_main.showMessage('Warning: No Image Data Loaded')
 
     def update_stack_info(self):
         z, x, y = np.shape(self.updated_stack)
@@ -295,13 +317,15 @@ class midasWindow(QtWidgets.QMainWindow):
         self.y1, self.y2 = self.sb_yrange1.value(), self.sb_yrange2.value()
         self.z1, self.z2 = self.sb_zrange1.value(), self.sb_zrange2.value()
 
-        self.updated_stack = remove_nan_inf(self.im_stack[self.z1:self.z2,
+        self.updated_stack = remove_nan_inf(self.updated_stack[self.z1:self.z2,
                                             self.x1:self.x2, self.y1:self.y2])
 
     def transpose_stack(self):
         self.updated_stack = self.updated_stack.T
         self.update_spectrum()
         self.update_spec_image_roi()
+
+    #Alignement
 
     def loadAlignRefImage(self):
         filename = QFileDialog().getOpenFileName(self, "Image Data", '', '*.tiff *.tif')
@@ -382,6 +406,7 @@ class midasWindow(QtWidgets.QMainWindow):
 
     def loadSplashScreen(self):
         self.splash = LoadingScreen()
+
         px = self.geometry().x()
         py = self.geometry().y()
         ph = self.geometry().height()
@@ -390,21 +415,11 @@ class midasWindow(QtWidgets.QMainWindow):
         dh = self.splash.height()
         new_x,new_y = px+(0.5*pw)-dw, py+(0.5*ph)-dh
         self.splash.setGeometry(new_x, new_y, dw, dh)
+
         self.splash.show()
 
-    def StackRegThread(self):
-        # Pass the function to execute
-        worker = Worker(self.stackRegistration)  # Any other args, kwargs are passed to the run function
-        self.loadSplashScreen()
-        worker.signals.start.connect(self.splash.startAnimation)
-        worker.signals.result.connect(self.print_output)
-        worker.signals.finished.connect(self.thread_complete)
-        worker.signals.finished.connect(self.splash.stopAnimation)
-        # Execute
-        self.threadpool.start(worker)
-        self.update_image_roi()
-
     def update_stack(self):
+        self.updated_stack = self.im_stack
 
         self.crop_to_dim()
 
@@ -545,18 +560,17 @@ class midasWindow(QtWidgets.QMainWindow):
         self.update_spectrum()
         self.update_image_roi()
 
-        # connections
+        # image connections
         self.image_view.mousePressEvent = self.getPointSpectrum
         self.spec_roi.sigRegionChanged.connect(self.update_image_roi)
         self.spec_roi_math.sigRegionChangeFinished.connect(self.spec_roi_calc)
         self.rb_math_roi.clicked.connect(self.update_spectrum)
         self.pb_add_roi_2.clicked.connect(self.math_img_roi_flag)
         self.image_roi_math.sigRegionChangeFinished.connect(self.image_roi_calc)
-        self.rb_poly_roi.clicked.connect(self.setImageROI)
-        self.rb_elli_roi.clicked.connect(self.setImageROI)
-        self.rb_rect_roi.clicked.connect(self.setImageROI)
-        self.rb_line_roi.clicked.connect(self.setImageROI)
-        self.rb_circle_roi.clicked.connect(self.setImageROI)
+
+        [rbs.clicked.connect(self.setImageROI) for rbs in
+         [self.rb_poly_roi,self.rb_elli_roi,self.rb_rect_roi,
+          self.rb_line_roi,self.rb_circle_roi]]
 
     def select_elist(self):
         self.energyFileChooser()
@@ -896,8 +910,8 @@ class midasWindow(QtWidgets.QMainWindow):
 
     def save_stack(self):
 
-        self.update_stack()
-        file_name = QFileDialog().getSaveFileName(self, "Save image data", '', 'image file(*tiff *tif )')
+        #self.update_stack()
+        file_name = QFileDialog().getSaveFileName(self, "Save image data", 'stack.tiff', 'image file(*tiff *tif )')
         if file_name[0]:
             tf.imsave(str(file_name[0]), self.updated_stack.transpose(0, 2, 1))
             logger.info(f'Updated Image Saved: {str(file_name[0])}')
@@ -907,7 +921,7 @@ class midasWindow(QtWidgets.QMainWindow):
             pass
 
     def save_disp_img(self):
-        file_name = QFileDialog().getSaveFileName(self, "Save image data", '', 'image file(*tiff *tif )')
+        file_name = QFileDialog().getSaveFileName(self, "Save image data", 'image.tiff', 'image file(*tiff *tif )')
         if file_name[0]:
             tf.imsave(str(file_name[0]) + '.tiff', self.disp_img.T)
             self.statusbar_main.showMessage(f'Image Saved to {str(file_name[0])}')
@@ -915,6 +929,103 @@ class midasWindow(QtWidgets.QMainWindow):
 
         else:
             logger.error('No file to save')
+            self.statusbar_main.showMessage('Saving cancelled')
+            pass
+
+    def getLivePlotData(self):
+        try:
+
+            data = np.squeeze([c.getData() for c in self.spectrum_view.plotItem.curves])
+            #print(np.shape(data))
+            if data.ndim == 2:
+                self.mu_ = data[1]
+                self.e_ = data[0]
+            elif data.ndim == 3:
+                e_mu = data[0,:,:]
+                self.mu_ = e_mu[1]
+                self.e_ = e_mu[0]
+
+            else:
+                logger.error(f" Data shape of {data.ndim} is not supported")
+                pass
+        except AttributeError:
+            logger.error ("No data loaded")
+            pass
+
+    def addSpectrumToCollector(self):
+        self.getLivePlotData()
+        self.spectrum_view_collect.plot(self.e_, self.mu_, name='ROI Spectrum')
+        self.spectrum_view_collect.setLabel('bottom', 'Energy', self.e_unit)
+        self.spectrum_view_collect.setLabel('left', 'Intensity', 'A.U.')
+
+    def findEo(self):
+        try:
+            self.getLivePlotData()
+            e0_init = self.e_[np.argmax(np.gradient(self.mu_))]
+            self.dsb_norm_Eo.setValue(e0_init)
+
+        except AttributeError:
+            logger.error ("No data loaded")
+            pass
+
+    def initNormVals(self):
+        self.getLivePlotData()
+        e0_init = self.e_[np.argmax(np.gradient(self.mu_))]
+        pre1, pre2, post1,post2 = xanesNormalization(self.e_, self.mu_, e0=e0_init, step=None,
+                                                            nnorm=1, nvict=0, guess = True)
+        self.dsb_norm_pre1.setValue(pre1)
+        self.dsb_norm_pre2.setValue(pre2)
+        self.dsb_norm_post1.setValue(post1)
+        self.dsb_norm_post2.setValue(post2)
+        self.dsb_norm_Eo.setValue(e0_init)
+
+    def getNormParams(self):
+        self.getLivePlotData()
+        eo_ = self.dsb_norm_Eo.value()
+        pre1_, pre2_ = self.dsb_norm_pre1.value(), self.dsb_norm_pre2.value()
+        norm1_, norm2_ = self.dsb_norm_post1.value(), self.dsb_norm_post2.value()
+        norm_order = self.sb_norm_order.value()
+
+        return eo_,pre1_, pre2_,norm1_, norm2_,norm_order
+
+    def nomalizeLiveSpec(self):
+        eo_, pre1_, pre2_, norm1_, norm2_, norm_order = self.getNormParams()
+        self.spectrum_view.clear()
+
+        pre_line, post_line, normXANES = xanesNormalization(self.e_, self.mu_, e0=eo_, step=None,
+                           nnorm=norm_order, nvict=0, pre1=pre1_, pre2=pre2_,
+                           norm1=norm1_, norm2=norm2_)
+
+        names = np.array(('Spectrum','Pre','Post'))
+        data_array = np.array((self.mu_, pre_line, post_line))
+        colors = np.array(('c', 'r', 'm'))
+
+        for data, clr, name in zip(data_array, colors, names):
+            self.spectrum_view.plot(self.e_, data, pen=pg.mkPen(clr, width=2),name=name)
+
+        self.spectrum_view_norm.plot(self.e_, normXANES,clear = True,
+                                     pen=pg.mkPen(self.plt_colors[-1], width=2))
+        self.spectrum_view_norm.setLabel('bottom', 'Energy', self.e_unit)
+        self.spectrum_view_norm.setLabel('left', 'Norm. Intensity', 'A.U.')
+
+    def normalizeStack(self):
+        self.getLivePlotData()
+        eo_, pre1_, pre2_, norm1_, norm2_, norm_order = self.getNormParams()
+
+        self.updated_stack = xanesNormStack(self.e_, self.updated_stack, e0=eo_, step=None,
+                       nnorm=norm_order, nvict=0, pre1=pre1_, pre2=pre2_,
+                       norm1=norm1_, norm2=norm2_)
+
+    def resetCollectorSpec(self):
+        pass
+
+    def saveCollectorPlot(self):
+        exporter = pg.exporters.CSVExporter(self.spectrum_view_collect.plotItem)
+        exporter.parameters()['columnMode'] = '(x,y,y,y) for all plots'
+        file_name = QFileDialog().getSaveFileName(self, "save spectra", '', 'spectra (*csv)')
+        if file_name[0]:
+            exporter.export(str(file_name[0]) + '.csv')
+        else:
             self.statusbar_main.showMessage('Saving cancelled')
             pass
 
@@ -939,7 +1050,7 @@ class midasWindow(QtWidgets.QMainWindow):
 
         logger.info('Process started..')
 
-        self.update_stack()
+        #self.update_stack()
         n_components = self.sb_ncomp.value()
         method_ = self.cb_comp_method.currentText()
 
@@ -953,7 +1064,7 @@ class midasWindow(QtWidgets.QMainWindow):
 
     def kmeans_elbow(self):
         logger.info('Process started..')
-        self.update_stack()
+        #self.update_stack()
         try:
             kmeans_variance(self.updated_stack)
             logger.info('Process complete')
@@ -972,7 +1083,7 @@ class midasWindow(QtWidgets.QMainWindow):
     def clustering_(self):
 
         logger.info('Process started..')
-        self.update_stack()
+        #self.update_stack()
         method_ = self.cb_clust_method.currentText()
 
         decon_images, X_cluster, decon_spectra = cluster_stack(self.updated_stack, method=method_,

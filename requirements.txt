@@ -9,5 +9,6 @@ scikit-learn
 scipy
 tifffile
 ipython
+xraylarch
 pyshortcuts
 

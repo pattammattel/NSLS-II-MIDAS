@@ -14,13 +14,13 @@ from pyqtgraph import ImageView, PlotWidget
 from StackCalcs import *
 
 logger = logging.getLogger()
-
+ui_path = os.path.dirname(os.path.abspath(__file__))
 
 class MaskSpecViewer(QtWidgets.QMainWindow):
 
     def __init__(self, xanes_stack=None, xrf_map=None, energy=[]):
         super(MaskSpecViewer, self).__init__()
-        uic.loadUi('uis/MaskedView.ui', self)
+        uic.loadUi(os.path.join(ui_path,'uis/MaskedView.ui'), self)
 
         self.xanes_stack = xanes_stack
         self.xrf_map = xrf_map

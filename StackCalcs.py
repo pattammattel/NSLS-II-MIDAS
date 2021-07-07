@@ -9,6 +9,7 @@ import h5py
 import logging
 import tifffile as tf
 
+from larch.xafs import preedge
 from pystackreg import StackReg
 from PyQt5 import QtCore
 from scipy.signal import savgol_filter
@@ -215,7 +216,7 @@ def clean_stack(img_stack, auto_bg=False, bg_percentage=5):
 
     bged_img_stack = img_stack * bg2
 
-    return bged_img_stack
+    return remove_nan_inf(bged_img_stack)
 
 def classify(img_stack, correlation='Pearson'):
     img_stack_ = img_stack
@@ -487,6 +488,37 @@ def create_df_from_nor_try2(athenafile='fe_refs.nor'):
 def energy_from_logfile(logfile = 'maps_log_tiff.txt'):
     df = pd.read_csv(logfile, header= None, delim_whitespace=True, skiprows=9)
     return df[9][df[7]=='energy'].values.astype(float)
+
+def xanesNormalization(e, mu, e0=7125, step=None,
+            nnorm=2, nvict=0, pre1=None, pre2=-50,
+            norm1=100, norm2=None, guess = False):
+    if guess:
+        result = preedge(e, mu, e0, step = step, nnorm=nnorm,
+                         nvict = nvict)
+
+        return result['pre1'],result['pre2'],result['norm1'],result['norm2']
+
+    else:
+        result = preedge(e, mu, e0, step, nnorm,
+                         nvict, pre1, pre2, norm1, norm2)
+
+        return result['pre_edge'],result['post_edge'],result['norm']
+
+def xanesNormStack(e_list,im_stack, e0=7125, step=None,
+            nnorm=2, nvict=0, pre1=None, pre2=-50,
+            norm1=100, norm2=None):
+
+    en, im1, im2 = np.shape(im_stack)
+    im_array = im_stack.reshape(en, im1 * im2)
+    normedStackArray = np.zeros_like(im_array)
+
+    for i in range(im1 * im2):
+        pre_line, post_line, normXANES = xanesNormalization(e_list, im_array[:, i], e0=e0, step=step,
+                           nnorm=nnorm, nvict=nvict, pre1=pre1, pre2=pre2,
+                           norm1=norm1, norm2=norm2, guess=False)
+        normedStackArray[:, i] = normXANES
+
+    return remove_nan_inf(np.reshape(normedStackArray,(en, im1, im2)))
 
 def align_stack(stack_img, ref_image_void = True, ref_stack = None, transformation = StackReg.TRANSLATION,
                 reference = 'previous'):

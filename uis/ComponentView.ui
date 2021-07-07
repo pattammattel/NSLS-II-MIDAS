@@ -20,7 +20,7 @@
    <property name="styleSheet">
     <string notr="true"/>
    </property>
-   <layout class="QGridLayout" name="gridLayout_6">
+   <layout class="QGridLayout" name="gridLayout_7">
     <item row="0" column="0">
      <layout class="QGridLayout" name="gridLayout">
       <item row="0" column="0">
@@ -28,7 +28,7 @@
         <item row="1" column="0">
          <widget class="QLabel" name="label_4">
           <property name="styleSheet">
-           <string notr="true">font: 12pt &quot;MS Shell Dlg 2&quot;;</string>
+           <string notr="true"/>
           </property>
           <property name="text">
            <string>Components</string>
@@ -151,7 +151,7 @@ color: rgb(255, 0, 127);
         <item row="0" column="0">
          <widget class="QLabel" name="label_5">
           <property name="styleSheet">
-           <string notr="true">font: 12pt &quot;MS Shell Dlg 2&quot;;</string>
+           <string notr="true"/>
           </property>
           <property name="text">
            <string>Component Masks</string>
@@ -169,8 +169,7 @@ color: rgb(255, 0, 127);
       <item row="1" column="0">
        <widget class="QPushButton" name="pb_show_all">
         <property name="styleSheet">
-         <string notr="true">font: 12pt &quot;MS Shell Dlg 2&quot;;
-background-color: rgb(175, 236, 255);</string>
+         <string notr="true"/>
         </property>
         <property name="text">
          <string>Show All Spectra</string>
@@ -181,29 +180,10 @@ background-color: rgb(175, 236, 255);</string>
     </item>
     <item row="1" column="0" colspan="2">
      <layout class="QGridLayout" name="gridLayout_3">
-      <item row="2" column="0">
-       <widget class="PlotWidget" name="component_view"/>
-      </item>
-      <item row="1" column="0">
-       <widget class="QLabel" name="label_2">
-        <property name="styleSheet">
-         <string notr="true">font: 75 12pt &quot;MS Shell Dlg 2&quot;;</string>
-        </property>
-        <property name="text">
-         <string>Component Spectrum</string>
-        </property>
-        <property name="alignment">
-         <set>Qt::AlignCenter</set>
-        </property>
-       </widget>
-      </item>
-      <item row="2" column="1">
-       <widget class="PlotWidget" name="spectrum_view"/>
-      </item>
       <item row="1" column="1">
        <widget class="QLabel" name="label">
         <property name="styleSheet">
-         <string notr="true">font: 75 12pt &quot;MS Shell Dlg 2&quot;;</string>
+         <string notr="true"/>
         </property>
         <property name="text">
          <string>Masked Spectrum</string>
@@ -213,7 +193,48 @@ background-color: rgb(175, 236, 255);</string>
         </property>
        </widget>
       </item>
+      <item row="2" column="1">
+       <widget class="PlotWidget" name="spectrum_view"/>
+      </item>
+      <item row="2" column="0">
+       <widget class="PlotWidget" name="component_view"/>
+      </item>
+      <item row="1" column="0">
+       <widget class="QLabel" name="label_2">
+        <property name="styleSheet">
+         <string notr="true"/>
+        </property>
+        <property name="text">
+         <string>Component Spectrum</string>
+        </property>
+        <property name="alignment">
+         <set>Qt::AlignCenter</set>
+        </property>
+       </widget>
+      </item>
      </layout>
+    </item>
+    <item row="2" column="0">
+     <widget class="QFrame" name="frame">
+      <property name="frameShape">
+       <enum>QFrame::StyledPanel</enum>
+      </property>
+      <property name="frameShadow">
+       <enum>QFrame::Raised</enum>
+      </property>
+      <layout class="QGridLayout" name="gridLayout_6">
+       <item row="0" column="0">
+        <widget class="QPushButton" name="pb_openScatterPlot">
+         <property name="styleSheet">
+          <string notr="true"/>
+         </property>
+         <property name="text">
+          <string>Open ScatterPlot</string>
+         </property>
+        </widget>
+       </item>
+      </layout>
+     </widget>
     </item>
    </layout>
   </widget>
