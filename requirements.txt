@@ -1,14 +1,13 @@
 h5py
 numpy
 pandas
-PyQt5
+pqt5
 pyqtgraph
 pystackreg
 scikit-image
 scikit-learn
 scipy
 tifffile
-ipython
-xraylarch
+xraylarch==0.9.51
 pyshortcuts
 
