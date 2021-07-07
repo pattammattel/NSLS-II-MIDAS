@@ -1,7 +1,7 @@
 h5py
 numpy
 pandas
-pqt5
+pyqt5
 pyqtgraph
 pystackreg
 scikit-image

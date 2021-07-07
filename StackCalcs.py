@@ -379,7 +379,7 @@ def interploate_E(refs, e):
 def getStats(spec,fit, num_refs = 2):
     stats = {}
 
-    r_factor = (np.sum(spec) - np.sum(fit)) / np.sum(spec)
+    r_factor = (np.sum(spec -fit)**2) / np.sum(spec**2)
     stats['R_Factor'] = np.around(r_factor,5)
 
     y_mean = np.sum(spec)/len(spec)
