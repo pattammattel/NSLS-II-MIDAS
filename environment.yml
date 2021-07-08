@@ -133,5 +133,5 @@ dependencies:
     - urllib3==1.26.6
     - xraydb==4.4.7
     - xraylarch==0.9.51
-prefix: C:\Users\pattammattel\AppData\Local\Continuum\anaconda3\envs\SLS-II-MIDAS
+
 
