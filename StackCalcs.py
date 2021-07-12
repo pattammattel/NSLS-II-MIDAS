@@ -520,6 +520,17 @@ def xanesNormStack(e_list,im_stack, e0=7125, step=None,
 
     return remove_nan_inf(np.reshape(normedStackArray,(en, im1, im2)))
 
+def removeAvgSpecFromStack(im_stack):
+    mean_spec = np.mean(np.mean(im_stack, 1), 1)
+    mean_array = np.ones((im_stack.shape))
+    for n, val in enumerate(mean_spec):
+        mean_array[n] *= val
+
+    new_img = np.subtract(im_stack,mean_array)
+
+    return new_img
+
+
 def align_stack(stack_img, ref_image_void = True, ref_stack = None, transformation = StackReg.TRANSLATION,
                 reference = 'previous'):
 
