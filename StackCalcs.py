@@ -93,14 +93,15 @@ def smoothen(image_array, w_size=5):
     a, b, c = np.shape(image_array)
     image_array = remove_nan_inf(image_array)
     spec2D_Matrix = np.reshape(image_array, (a, (b * c)))
-    smooth_stack = np.zeros(np.shape(spec2D_Matrix))
-    tot_spec = np.shape(spec2D_Matrix)[1]
 
+    '''
     for i in range(tot_spec):
         norm_spec = spec2D_Matrix[:, i]
         if norm_spec.sum() > 0:
             norm_spec = savgol_filter(norm_spec, w_size, w_size - 2)
         smooth_stack[:, i] = norm_spec
+    '''
+    smooth_stack = savgol_filter(spec2D_Matrix, w_size, w_size - 2, axis = 0)
 
     norm_stack = np.reshape(smooth_stack, (a, b, c))
     return remove_nan_inf(norm_stack)
