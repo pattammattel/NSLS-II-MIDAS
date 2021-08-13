@@ -20,6 +20,19 @@ logger = logging.getLogger()
 
 
 def get_xrf_data(h='h5file'):
+    """
+    get xrf stack from h5 data generated at NSLS-II beamlines
+
+     Arguments:
+        h5/hdf5 file
+
+     Returns:
+         norm_xrf_stack -  xrf stack image normalized with Io
+         mono_e  - excitation enegy used for xrf
+         beamline - identity of the beamline
+         Io_avg - an average Io value, used before taking log
+
+    """
 
     f = h5py.File(h, 'r')
 
@@ -93,15 +106,14 @@ def smoothen(image_array, w_size=5):
     a, b, c = np.shape(image_array)
     image_array = remove_nan_inf(image_array)
     spec2D_Matrix = np.reshape(image_array, (a, (b * c)))
+    smooth_stack = np.zeros(np.shape(spec2D_Matrix))
+    tot_spec = np.shape(spec2D_Matrix)[1]
 
-    '''
     for i in range(tot_spec):
         norm_spec = spec2D_Matrix[:, i]
         if norm_spec.sum() > 0:
             norm_spec = savgol_filter(norm_spec, w_size, w_size - 2)
         smooth_stack[:, i] = norm_spec
-    '''
-    smooth_stack = savgol_filter(spec2D_Matrix, w_size, w_size - 2, axis = 0)
 
     norm_stack = np.reshape(smooth_stack, (a, b, c))
     return remove_nan_inf(norm_stack)
@@ -416,7 +428,7 @@ def xanes_fitting_1D(spec, e_list, refs, method='NNLS', alphaForLM = 0.01):
         coeffs = fit_results.coef_
 
     fit = coeffs@int_refs
-    stats = getStats(spec,fit)
+    stats = getStats(spec,fit, num_refs = np.min(np.shape(int_refs.T)))
 
     return stats, coeffs
 
@@ -520,16 +532,6 @@ def xanesNormStack(e_list,im_stack, e0=7125, step=None,
         normedStackArray[:, i] = normXANES
 
     return remove_nan_inf(np.reshape(normedStackArray,(en, im1, im2)))
-
-
-def removeAvgSpecFromStack(im_stack):
-    mean_spec = np.mean(np.mean(im_stack, 1), 1)
-    en, im1, im2 = np.shape(im_stack)
-    im_array = im_stack.reshape(en, im1 * im2)
-    new_img = np.subtract(im_array,mean_spec[:,np.newaxis])
-
-    return np.reshape(new_img, (en, im1, im2))
-
 
 def align_stack(stack_img, ref_image_void = True, ref_stack = None, transformation = StackReg.TRANSLATION,
                 reference = 'previous'):

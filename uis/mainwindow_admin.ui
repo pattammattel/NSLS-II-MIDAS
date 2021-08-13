@@ -2085,8 +2085,8 @@ border-radius: 4px;
           <property name="geometry">
            <rect>
             <x>0</x>
-            <y>-47</y>
-            <width>412</width>
+            <y>0</y>
+            <width>433</width>
             <height>308</height>
            </rect>
           </property>
@@ -2423,13 +2423,13 @@ border-radius: 4px;
    </widget>
    <widget class="QMenu" name="menuMask">
     <property name="enabled">
-     <bool>false</bool>
+     <bool>true</bool>
     </property>
     <property name="title">
      <string>Tools</string>
     </property>
     <addaction name="actionOpen_Mask_Gen"/>
-    <addaction name="actionAlign_Stack"/>
+    <addaction name="actionMultiColor"/>
    </widget>
    <widget class="QMenu" name="menuView">
     <property name="title">
@@ -2460,8 +2460,17 @@ border-radius: 4px;
     <property name="title">
      <string>Plot</string>
     </property>
+    <addaction name="actionExport_Norm_Params"/>
+   </widget>
+   <widget class="QMenu" name="menuImage">
+    <property name="title">
+     <string>Image</string>
+    </property>
+    <addaction name="actionSave_Sum_Image"/>
+    <addaction name="actionSubtract_Average_spectra_from_stack"/>
    </widget>
    <addaction name="menuFile"/>
+   <addaction name="menuImage"/>
    <addaction name="menuPlot"/>
    <addaction name="menuView"/>
    <addaction name="menuMask"/>
@@ -2580,6 +2589,9 @@ border-radius: 4px;
    </property>
   </action>
   <action name="actionOpen_Mask_Gen">
+   <property name="enabled">
+    <bool>true</bool>
+   </property>
    <property name="text">
     <string>Open Mask Generator</string>
    </property>
@@ -2600,9 +2612,12 @@ border-radius: 4px;
     <string>Save Energy List</string>
    </property>
   </action>
-  <action name="actionAlign_Stack">
+  <action name="actionMultiColor">
+   <property name="enabled">
+    <bool>true</bool>
+   </property>
    <property name="text">
-    <string>Align Stack</string>
+    <string>MultiColorView</string>
    </property>
    <property name="toolTip">
     <string>A new window will be opened to align images in a stack</string>
@@ -2669,6 +2684,21 @@ border-radius: 4px;
   <action name="actionModern">
    <property name="text">
     <string>Modern</string>
+   </property>
+  </action>
+  <action name="actionSave_Sum_Image">
+   <property name="text">
+    <string>Save Sum Image </string>
+   </property>
+  </action>
+  <action name="actionSubtract_Average_spectra_from_stack">
+   <property name="text">
+    <string>Subtract Average spectrum from stack</string>
+   </property>
+  </action>
+  <action name="actionExport_Norm_Params">
+   <property name="text">
+    <string>Export Norm. Params</string>
    </property>
   </action>
  </widget>

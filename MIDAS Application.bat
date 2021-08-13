@@ -1,6 +1,6 @@
 
-call activate NSLS-II-MIDAS
-ipython main.py
+call conda activate NSLS-II-MIDAS
+python main.py
 call conda deactivate
 
 
