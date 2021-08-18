@@ -11,7 +11,7 @@
     <x>0</x>
     <y>0</y>
     <width>1364</width>
-    <height>966</height>
+    <height>1034</height>
    </rect>
   </property>
   <property name="sizePolicy">
@@ -137,7 +137,7 @@ border-radius: 4px;
           <string notr="true"/>
          </property>
          <property name="currentIndex">
-          <number>0</number>
+          <number>1</number>
          </property>
          <widget class="QWidget" name="page">
           <property name="geometry">
@@ -1080,7 +1080,7 @@ border-radius: 4px;
            <rect>
             <x>0</x>
             <y>0</y>
-            <width>411</width>
+            <width>334</width>
             <height>189</height>
            </rect>
           </property>
@@ -1214,8 +1214,8 @@ border-radius: 4px;
            <rect>
             <x>0</x>
             <y>0</y>
-            <width>411</width>
-            <height>189</height>
+            <width>313</width>
+            <height>185</height>
            </rect>
           </property>
           <attribute name="label">
@@ -1335,8 +1335,8 @@ border-radius: 4px;
            <rect>
             <x>0</x>
             <y>0</y>
-            <width>411</width>
-            <height>205</height>
+            <width>313</width>
+            <height>180</height>
            </rect>
           </property>
           <attribute name="label">

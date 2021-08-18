@@ -1,5 +1,5 @@
 import sys, os, json, collections
-import cv2
+#import cv2
 import numpy as np
 import pyqtgraph as pg
 from pyqtgraph.Qt import QtCore, QtGui, QtWidgets, uic
