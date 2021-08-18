@@ -1202,7 +1202,7 @@ class midasWindow(QtWidgets.QMainWindow):
         self.mask_window.show()
 
     def open_github_link(self):
-        webbrowser.open('https://github.com/pattammattel/NSLS-II-MIDAS')
+        webbrowser.open('https://github.com/pattammattel/NSLS-II-MIDAS/wiki')
 
     # Thread Signals
 
