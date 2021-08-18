@@ -35,10 +35,27 @@ class midasWindow(QtWidgets.QMainWindow):
         self.loaded_tranform_file = []
         self.image_roi2_flag = False
         self.refStackAvailable = False
+        self.plotWidth = 2
 
         self.plt_colors = ['g', 'r', 'c', 'm', 'y', 'w', 'b',
                            pg.mkPen(70, 5, 80), pg.mkPen(255, 85, 130),
                            pg.mkPen(0, 85, 130), pg.mkPen(255, 170, 60)]*3
+
+        #plotview options
+        self.actionWhite.triggered.connect(lambda:self.spectrum_view.setBackground('w'))
+        self.actionRed.triggered.connect(lambda:self.spectrum_view.setBackground('r'))
+        self.actionYellow.triggered.connect(lambda:self.spectrum_view.setBackground('y'))
+        self.actionBlue.triggered.connect(lambda:self.spectrum_view.setBackground('b'))
+        self.actionBlack.triggered.connect(lambda:self.spectrum_view.setBackground((0,0,0)))
+
+        self.actn1.triggered.connect(lambda: self.setPlotLineWidth(int(self.actn1.text())))
+        self.actn2.triggered.connect(lambda: self.setPlotLineWidth(int(self.actn2.text())))
+        self.actn3.triggered.connect(lambda: self.setPlotLineWidth(int(self.actn3.text())))
+        self.actn4.triggered.connect(lambda: self.setPlotLineWidth(int(self.actn4.text())))
+        self.actn5.triggered.connect(lambda: self.setPlotLineWidth(int(self.actn5.text())))
+        self.actn6.triggered.connect(lambda: self.setPlotLineWidth(int(self.actn6.text())))
+        self.actn8.triggered.connect(lambda: self.setPlotLineWidth(int(self.actn8.text())))
+        self.actn10.triggered.connect(lambda: self.setPlotLineWidth(int(self.actn10.text())))
 
         self.actionOpen_Image_Data.triggered.connect(self.browse_file)
         self.actionOpen_Multiple_Files.triggered.connect(self.createVirtualStack)
@@ -70,8 +87,11 @@ class midasWindow(QtWidgets.QMainWindow):
          [self.cb_remove_edges,self.cb_upscale,
           self.cb_rebin]]
 
-        #stack ingo
+        #stack info
         self.pb_stack_info.clicked.connect(self.displayStackInfo)
+
+        #ROI background
+        self.actionSubtract_ROI_BG.triggered.connect(lambda: self.threadMaker(self.removeROIBGStack))
 
         # alignment
         self.pb_load_align_ref.clicked.connect(self.loadAlignRefImage)
@@ -81,8 +101,10 @@ class midasWindow(QtWidgets.QMainWindow):
         #self.pb_alignStack.clicked.connect(self.stackRegistration)
 
         # save_options
+        self.actionSave_Sum_Image.triggered.connect(lambda: self.save_stack(saveSum = True))
         self.pb_save_disp_img.clicked.connect(self.save_disp_img)
         self.pb_save_disp_spec.clicked.connect(self.save_disp_spec)
+        self.actionSave_Energy_List.triggered.connect(self.saveEnergyList)
         self.pb_show_roi.clicked.connect(self.getROIMask)
         self.pb_addToCollector.clicked.connect(self.addSpectrumToCollector)
         self.pb_collect_clear.clicked.connect(lambda:self.spectrum_view_collect.clear())
@@ -93,6 +115,8 @@ class midasWindow(QtWidgets.QMainWindow):
         self.pb_auto_Eo.clicked.connect(self.findEo)
         self.pb_xanes_norm_vals.clicked.connect(self.initNormVals)
         self.pb_apply_norm_to_stack.clicked.connect(lambda:self.threadMaker(self.normalizeStack))
+        self.actionExport_Norm_Params.triggered.connect(self.exportNormParams)
+        self.actionImport_Norm_Params.triggered.connect(self.importNormParams)
 
         # Analysis
         self.pb_pca_scree.clicked.connect(self.pca_scree_)
@@ -113,6 +137,13 @@ class midasWindow(QtWidgets.QMainWindow):
 
     def defaultMode(self):
         self.centralwidget.setStyleSheet(open(os.path.join(ui_path, 'defaultStyle.css')).read())
+
+    def setPlotLineWidth(self, width_input):
+        self.plotWidth = width_input
+        try:
+            self.update_spectrum()
+        except:
+            pass
 
     def threadMaker(self, funct):
         # Pass the function to execute
@@ -208,7 +239,7 @@ class midasWindow(QtWidgets.QMainWindow):
                     self.im_stack = self.im_stack_.reshape(1, self.im_stack_.shape[0], self.im_stack_.shape[1])
 
                 else:
-                    self.im_stack = self.im_stack_.transpose(0, 2, 1)
+                    self.im_stack = self.im_stack_
                 self.sb_zrange2.setValue(self.im_stack.shape[0])
                 self.autoEnergyLoader()
                 self.energyUnitCheck()
@@ -224,7 +255,7 @@ class midasWindow(QtWidgets.QMainWindow):
 
         try:
             logger.info(f' Transposed to shape: {np.shape(self.im_stack)}')
-            self.init_dimZ, self.init_dimX, self.init_dimY = self.im_stack.shape
+            self.init_dimZ, self.init_dimY, self.init_dimX = self.im_stack.shape
             # Remove any previously set max value during a reload
 
             self.sb_xrange2.setValue(self.init_dimX)
@@ -302,7 +333,7 @@ class midasWindow(QtWidgets.QMainWindow):
             self.statusbar_main.showMessage('Warning: No Image Data Loaded')
 
     def update_stack_info(self):
-        z, x, y = np.shape(self.updated_stack)
+        z, y, x = np.shape(self.updated_stack)
         self.sb_zrange2.setMaximum(z + self.sb_zrange1.value())
         self.sb_xrange2.setValue(x)
         self.sb_xrange2.setMaximum(x)
@@ -318,7 +349,7 @@ class midasWindow(QtWidgets.QMainWindow):
         self.z1, self.z2 = self.sb_zrange1.value(), self.sb_zrange2.value()
 
         self.updated_stack = remove_nan_inf(self.updated_stack[self.z1:self.z2,
-                                            self.x1:self.x2, self.y1:self.y2])
+                                            self.y1:self.y2, self.x1:self.x2])
 
     def transpose_stack(self):
         self.updated_stack = self.updated_stack.T
@@ -330,7 +361,7 @@ class midasWindow(QtWidgets.QMainWindow):
     def loadAlignRefImage(self):
         filename = QFileDialog().getOpenFileName(self, "Image Data", '', '*.tiff *.tif')
         file_name = (str(filename[0]))
-        self.alignRefImage = tf.imread(file_name).transpose(0, 2, 1)
+        self.alignRefImage = tf.imread(file_name)
         assert self.alignRefImage.shape == self.updated_stack.shape, "Image dimensions do not match"
         self.refStackAvailable = True
         self.rb_alignRefVoid.setChecked(False)
@@ -530,7 +561,7 @@ class midasWindow(QtWidgets.QMainWindow):
         except:
             pass
 
-        (self.dim1, self.dim3, self.dim2) = self.updated_stack.shape
+        (self.dim1, self.dim2, self.dim3) = self.updated_stack.shape
         self.image_view.setImage(self.updated_stack)
         self.image_view.ui.menuBtn.hide()
         self.image_view.ui.roiBtn.hide()
@@ -643,13 +674,14 @@ class midasWindow(QtWidgets.QMainWindow):
 
             if not n == 0:
                 self.ref_plot.plot(self.refs.values[:, 0], self.refs.values[:, n],
-                                   pen=pg.mkPen(self.plt_colors[n - 1], width=2), name=self.ref_names[n])
+                                   pen=pg.mkPen(self.plt_colors[n - 1], width=self.plotWidth ),
+                                   name=self.ref_names[n])
 
     def getPointSpectrum(self, event):
         if event.type() == QtCore.QEvent.MouseButtonDblClick:
             if event.button() == QtCore.Qt.LeftButton:
                 self.xpixel = int(self.image_view.view.mapSceneToView(event.pos()).x()) - 1
-                zlim, xlim, ylim = self.updated_stack.shape
+                zlim, ylim, xlim = self.updated_stack.shape
 
                 if self.xpixel > xlim:
                     self.xpixel = xlim - 1
@@ -657,10 +689,11 @@ class midasWindow(QtWidgets.QMainWindow):
                 self.ypixel = int(self.image_view.view.mapSceneToView(event.pos()).y()) - 1
                 if self.ypixel > ylim:
                     self.ypixel = ylim - 1
-
                 self.spectrum_view.addLegend()
-                self.point_spectrum = self.updated_stack[:, self.xpixel, self.ypixel]
-                self.spectrum_view.plot(self.xdata, self.point_spectrum, clear=True, pen = pg.mkPen(pg.mkColor(85,255,255,255), width=2),
+                self.point_spectrum = self.updated_stack[:, self.ypixel, self.xpixel]
+                self.spectrum_view.plot(self.xdata, self.point_spectrum, clear=True,
+                                        pen = pg.mkPen(pg.mkColor(0,0,255,255), width=self.plotWidth),
+                                        symbol='o',symbolSize = 6,symbolBrush = 'r',
                                         name=f'Point Spectrum; x= {self.xpixel}, y= {self.ypixel}')
 
                 self.spectrum_view.addItem(self.spec_roi)
@@ -751,9 +784,14 @@ class midasWindow(QtWidgets.QMainWindow):
         self.spectrum_view.addLegend()
 
         try:
-            self.spectrum_view.plot(self.xdata, self.mean_spectra, clear=True, name='ROI Spectrum')
+            self.spectrum_view.plot(self.xdata, self.mean_spectra,
+                                    pen = pg.mkPen(pg.mkColor(255,255,255,255), width = self.plotWidth),
+                                    clear=True, symbol='o',symbolSize = 6,symbolBrush = 'r',
+                                    name='ROI Spectrum')
         except:
-            self.spectrum_view.plot(self.mean_spectra, clear=True, name='ROI Spectrum')
+            self.spectrum_view.plot(self.mean_spectra, clear=True, pen = pg.mkPen(pg.mkColor(255,255,255,255),
+                                                                                  width = self.plotWidth),
+                                    symbol='o',symbolSize = 6,symbolBrush = 'r',name='ROI Spectrum')
 
         if self.energy[-1] > 1000:
             self.e_unit = 'eV'
@@ -908,14 +946,18 @@ class midasWindow(QtWidgets.QMainWindow):
         self.newWindow = singleStackViewer(self.roi_mask)
         self.newWindow.show()
 
-    def save_stack(self):
+    def save_stack(self, saveSum = False):
 
         #self.update_stack()
-        file_name = QFileDialog().getSaveFileName(self, "Save image data", 'stack.tiff', 'image file(*tiff *tif )')
+        file_name = QFileDialog().getSaveFileName(self, "Save image data", 'image.tiff', 'image file(*tiff *tif )')
         if file_name[0]:
-            tf.imsave(str(file_name[0]), self.updated_stack.transpose(0, 2, 1))
-            logger.info(f'Updated Image Saved: {str(file_name[0])}')
-            self.statusbar_main.showMessage(f'Updated Image Saved: {str(file_name[0])}')
+            if not saveSum:
+                tf.imsave(str(file_name[0]), self.updated_stack)
+                logger.info(f'Updated Image Saved: {str(file_name[0])}')
+                self.statusbar_main.showMessage(f'Updated Image Saved: {str(file_name[0])}')
+            if saveSum:
+                tf.imsave(str(file_name[0]), np.sum(self.updated_stack, axis = 0))
+
         else:
             self.statusbar_main.showMessage('Saving cancelled')
             pass
@@ -988,6 +1030,41 @@ class midasWindow(QtWidgets.QMainWindow):
 
         return eo_,pre1_, pre2_,norm1_, norm2_,norm_order
 
+    def exportNormParams(self):
+        self.xanesNormParam = {}
+        eo_, pre1_, pre2_, norm1_, norm2_, norm_order = self.getNormParams()
+        self.xanesNormParam['E0'] = eo_
+        self.xanesNormParam['pre1'] = pre1_
+        self.xanesNormParam['pre2'] = pre2_
+        self.xanesNormParam['post1'] = norm1_
+        self.xanesNormParam['post2'] = norm2_
+        self.xanesNormParam['norm_order'] = norm_order
+
+        file_name = QtWidgets.QFileDialog().getSaveFileName(self, "Save XANES Norm Params", 'xanes_norm_params.csv',
+                                                            'csv file(*csv)')
+
+        if file_name[0]:
+
+            pd.DataFrame(self.xanesNormParam,index=[0]).to_csv(file_name[0])
+
+        else:
+            pass
+
+    def importNormParams(self):
+
+        file_name = QtWidgets.QFileDialog().getOpenFileName(self, "Open a XANES Norm File", '',
+                                                            'csv file(*csv);;all_files (*)')
+
+        if file_name[0]:
+
+            xanesNormParam = pd.read_csv(file_name[0])
+            self.dsb_norm_Eo.setValue(xanesNormParam["E0"])
+            self.dsb_norm_pre1.setValue(xanesNormParam["pre1"])
+            self.dsb_norm_pre2.setValue(xanesNormParam["pre2"])
+            self.dsb_norm_post1.setValue(xanesNormParam["post1"])
+            self.dsb_norm_post2.setValue(xanesNormParam["post2"])
+            self.sb_norm_order.setValue(xanesNormParam["norm_order"])
+
     def nomalizeLiveSpec(self):
         eo_, pre1_, pre2_, norm1_, norm2_, norm_order = self.getNormParams()
         self.spectrum_view.clear()
@@ -1001,10 +1078,10 @@ class midasWindow(QtWidgets.QMainWindow):
         colors = np.array(('c', 'r', 'm'))
 
         for data, clr, name in zip(data_array, colors, names):
-            self.spectrum_view.plot(self.e_, data, pen=pg.mkPen(clr, width=2),name=name)
+            self.spectrum_view.plot(self.e_, data, pen=pg.mkPen(clr, width=self.plotWidth ),name=name)
 
         self.spectrum_view_norm.plot(self.e_, normXANES,clear = True,
-                                     pen=pg.mkPen(self.plt_colors[-1], width=2))
+                                     pen=pg.mkPen(self.plt_colors[-1], width=self.plotWidth ))
         self.spectrum_view_norm.setLabel('bottom', 'Energy', self.e_unit)
         self.spectrum_view_norm.setLabel('left', 'Norm. Intensity', 'A.U.')
 
@@ -1015,6 +1092,9 @@ class midasWindow(QtWidgets.QMainWindow):
         self.updated_stack = xanesNormStack(self.e_, self.updated_stack, e0=eo_, step=None,
                        nnorm=norm_order, nvict=0, pre1=pre1_, pre2=pre2_,
                        norm1=norm1_, norm2=norm2_)
+
+    def removeROIBGStack(self):
+        self.updated_stack = subtractBackground(self.updated_stack,self.mean_spectra)
 
     def resetCollectorSpec(self):
         pass
@@ -1038,6 +1118,13 @@ class midasWindow(QtWidgets.QMainWindow):
             exporter.export(str(file_name[0]) + '.csv')
         else:
             self.statusbar_main.showMessage('Saving cancelled')
+            pass
+
+    def saveEnergyList(self):
+        file_name = QFileDialog().getSaveFileName(self, "save energy list", 'energy_list.txt', 'text file (*txt)')
+        if file_name[0]:
+            np.savetxt(file_name[0], self.xdata,fmt='%.4f')
+        else:
             pass
 
     def pca_scree_(self):

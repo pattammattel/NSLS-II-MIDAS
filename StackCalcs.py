@@ -75,7 +75,7 @@ def get_xrf_data(h='h5file'):
         mono_e = 12000
         logger.info(f'Unable to get Excitation energy from the h5 data; using default value {mono_e} KeV')
 
-    return remove_nan_inf(norm_xrf_stack.T), mono_e + 1000, beamline, Io_avg
+    return remove_nan_inf(norm_xrf_stack.transpose((2,0,1))), mono_e + 1000, beamline, Io_avg
 
 def remove_nan_inf(im):
     im = np.array(im, dtype=np.float32)
@@ -104,19 +104,9 @@ def remove_hot_pixels(image_array, NSigma=5):
 
 def smoothen(image_array, w_size=5):
     a, b, c = np.shape(image_array)
-    image_array = remove_nan_inf(image_array)
     spec2D_Matrix = np.reshape(image_array, (a, (b * c)))
-    smooth_stack = np.zeros(np.shape(spec2D_Matrix))
-    tot_spec = np.shape(spec2D_Matrix)[1]
-
-    for i in range(tot_spec):
-        norm_spec = spec2D_Matrix[:, i]
-        if norm_spec.sum() > 0:
-            norm_spec = savgol_filter(norm_spec, w_size, w_size - 2)
-        smooth_stack[:, i] = norm_spec
-
-    norm_stack = np.reshape(smooth_stack, (a, b, c))
-    return remove_nan_inf(norm_stack)
+    smooth2D_Matrix = savgol_filter(spec2D_Matrix,  w_size, w_size - 2, axis = 0)
+    return remove_nan_inf(np.reshape(smooth2D_Matrix, (a, b, c)))
 
 def resize_stack(image_array, upscaling = False, scaling_factor = 2):
     en, im1, im2 = np.shape(image_array)
@@ -230,6 +220,17 @@ def clean_stack(img_stack, auto_bg=False, bg_percentage=5):
     bged_img_stack = img_stack * bg2
 
     return remove_nan_inf(bged_img_stack)
+
+def subtractBackground(im_stack,bg_region):
+    if bg_region.ndim == 3:
+        bg_region_ = np.mean(bg_region, axis = (1,2))
+
+    elif bg_region.ndim == 2:
+        bg_region_ = np.mean(bg_region, axis = 1)
+
+    else: bg_region_ = bg_region
+
+    return im_stack - bg_region_[:, np.newaxis, np.newaxis]
 
 def classify(img_stack, correlation='Pearson'):
     img_stack_ = img_stack
@@ -642,7 +643,7 @@ def modifyStack(raw_stack, normalizeStack = False, normToPoint = -1,
     if normalizeStack:
         modStack = normalize(raw_stack, norm_point=normToPoint)
     else:
-        modStack = raw_stack
+        pass
 
 
 

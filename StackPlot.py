@@ -14,9 +14,11 @@ from PyQt5.QtCore import pyqtSignal
 
 # Custom .py file contains image calculations
 from StackCalcs import *
+from MultiChannel import *
 
 logger = logging.getLogger()
 ui_path = os.path.dirname(os.path.abspath(__file__))
+pg.setConfigOption('imageAxisOrder', 'row-major')
 
 
 class singleStackViewer(QtWidgets.QMainWindow):
@@ -179,6 +181,8 @@ class ClusterViewer(QtWidgets.QMainWindow):
         self.update_display()
         self.hsb_cluster_number.valueChanged.connect(self.update_display)
         self.actionSave.triggered.connect(self.save_clust_data)
+        self.pb_show_all_spec.clicked.connect(self.showAllSpec)
+        self.pb_showMultiColor.clicked.connect(self.generateMultiColorView)
 
     def update_display(self):
         im_index = self.hsb_cluster_number.value()
@@ -203,6 +207,31 @@ class ClusterViewer(QtWidgets.QMainWindow):
             self.statusbar.showMessage("Saving Cancelled")
             pass
 
+    def showAllSpec(self):
+        self.component_view.clear()
+        self.plt_colors = ['g', 'b', 'r', 'c', 'm', 'y', 'w'] * 10
+        offsets = np.arange(0, 2, 0.2)
+        self.component_view.addLegend()
+        for ii in range(self.decon_spectra.shape[1]):
+            self.component_view.plot(self.energy,
+                                    (self.decon_spectra[:, ii] / self.decon_spectra[:, ii].max()) + offsets[ii],
+                                    pen=self.plt_colors[ii], name="cluster" + str(ii + 1))
+
+    def generateMultiColorView(self):
+        self.multichanneldict = {}
+
+        for n, (colorName, image) in enumerate(zip(cmap_dict.keys(), self.decon_images.transpose(0, 1, 2))):
+            low, high = np.min(image), np.max(image)
+            self.multichanneldict[f'Image {n + 1}'] = {'ImageName': f'Image {n + 1}',
+                                                 'ImageDir': '.',
+                                                 'Image': image,
+                                                 'Color': colorName,
+                                                 'CmapLimits': (low, high),
+                                                 'Opacity': 1.0
+                                                 }
+        self.muli_color_window = MultiChannelWindow(image_dict=self.multichanneldict)
+        self.muli_color_window.show()
+
 
 class XANESViewer(QtWidgets.QMainWindow):
 
@@ -223,7 +252,7 @@ class XANESViewer(QtWidgets.QMainWindow):
         self.decon_ims, self.rfactor, self.coeffs_arr = xanes_fitting(self.im_stack, self.e_list,
                                                                       self.refs, method=self.fit_method)
 
-        (self.dim1, self.dim3, self.dim2) = self.im_stack.shape
+        (self.dim1, self.dim2, self.dim3) = self.im_stack.shape
         self.cn = int(self.dim2 // 2)
         self.sz = np.max([int(self.dim2 * 0.15), int(self.dim3 * 0.15)])
         self.image_roi = pg.PolyLineROI([[0, 0], [0, self.sz], [self.sz, self.sz], [self.sz, 0]],
@@ -242,20 +271,22 @@ class XANESViewer(QtWidgets.QMainWindow):
         self.display_image_data()
         self.display_references()
         self.update_spectrum()
+
         # connections
         self.sb_e_shift.valueChanged.connect(self.update_spectrum)
         self.pb_re_fit.clicked.connect(self.re_fit_xanes)
         self.pb_edit_refs.clicked.connect(self.choose_refs)
         self.image_roi.sigRegionChanged.connect(self.update_spectrum)
-        self.pb_save_chem_map.clicked.connect(self.save_chem_map)
-        self.pb_save_spe_fit.clicked.connect(self.pg_export_spec_fit)
         self.hsb_xanes_stk.valueChanged.connect(self.display_image_data)
         self.hsb_chem_map.valueChanged.connect(self.display_image_data)
-        self.actionexportResults.triggered.connect(self.exportFitResults)
-        # self.actionexportResults.triggered.connect(self.exportFitResults)
+        self.pb_showMultiColor.clicked.connect(self.generateMultiColorView)
 
-        # self.pb_save_spe_fit.clicked.connect(self.save_spec_fit)
-        # self.pb_play_stack.clicked.connect(self.play_stack)
+        #menu
+        self.actionSave_Chem_Map.triggered.connect(self.save_chem_map)
+        self.actionSave_R_factor_Image.triggered.connect(self.save_rfactor_img)
+        self.actionSave_Live_Fit_Data.triggered.connect(self.pg_export_spec_fit)
+        self.actionExport_Fit_Stats.triggered.connect(self.exportFitResults)
+        self.actionExport_Ref_Plot.triggered.connect(self.pg_export_references)
 
     def scrollBar_setup(self):
         self.hsb_xanes_stk.setValue(self.stack_center)
@@ -379,11 +410,33 @@ class XANESViewer(QtWidgets.QMainWindow):
         # set the rfactor value to the line edit slot
         self.le_r_sq.setText(f'{rfactor_mean :.4f}')
 
+    def generateMultiColorView(self):
+        self.multichanneldict = {}
+
+        for n, (colorName, image) in enumerate(zip(cmap_dict.keys(), self.decon_ims.transpose((2,0,1)))):
+            low, high = np.min(image), np.max(image)
+            self.multichanneldict[f'Image {n + 1}'] = {'ImageName': f'Image {n + 1}',
+                                                 'ImageDir': '.',
+                                                 'Image': image,
+                                                 'Color': colorName,
+                                                 'CmapLimits': (low, high),
+                                                 'Opacity': 1.0
+                                                 }
+        self.muli_color_window = MultiChannelWindow(image_dict=self.multichanneldict)
+        self.muli_color_window.show()
+
     def save_chem_map(self):
-        file_name = QFileDialog().getSaveFileName(self, "save image", '', 'image data (*tiff)')
+        file_name = QFileDialog().getSaveFileName(self, "save image", 'chemical_map.tiff', 'image data (*tiff)')
         if file_name[0]:
-            tf.imsave(str(file_name[0]) + '_xanes_map.tiff', np.float32(self.decon_ims.T), imagej=True)
-            tf.imsave(str(file_name[0]) + '_rfactor.tiff', np.float32(self.rfactor.T), imagej=True)
+            tf.imsave(str(file_name[0]) , np.float32(self.decon_ims.transpose(2,0,1)), imagej=True)
+        else:
+            logger.error('No file to save')
+            pass
+
+    def save_rfactor_img(self):
+        file_name = QFileDialog().getSaveFileName(self, "save image", 'r-factor_map.tiff', 'image data (*tiff)')
+        if file_name[0]:
+            tf.imsave(str(file_name[0]), np.float32(self.rfactor), imagej=True)
         else:
             logger.error('No file to save')
             pass
@@ -409,6 +462,17 @@ class XANESViewer(QtWidgets.QMainWindow):
             exporter.export(str(file_name[0]) + '.csv')
         else:
             pass
+
+    def pg_export_references(self):
+
+        exporter = pg.exporters.CSVExporter(self.spectrum_view_refs.plotItem)
+        exporter.parameters()['columnMode'] = '(x,y,y,y) for all plots'
+        file_name = QFileDialog().getSaveFileName(self, "save references", 'xanes_references.csv', 'column data (*csv)')
+        if file_name[0]:
+            exporter.export(str(file_name[0]))
+        else:
+            pass
+
 
     def exportFitResults(self):
         file_name = QFileDialog().getSaveFileName(self, "save txt", 'xanes_1D_fit_results.txt', 'txt data (*txt)')
@@ -854,7 +918,6 @@ class ComponentScatterPlot(QtWidgets.QMainWindow):
             self.statusbar.showMessage(f"Images saved to {str(file_name[0])}")
         else:
             pass
-
 
 class LoadingScreen(QtWidgets.QSplashScreen):
 

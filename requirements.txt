@@ -8,6 +8,7 @@ scikit-image
 scikit-learn
 scipy
 tifffile
-xraylarch
+xraylarch==0.9.51
 pyshortcuts
+opencv-python
 

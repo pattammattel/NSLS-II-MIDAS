@@ -65,7 +65,7 @@ font: 12pt &quot;Segoe UI&quot;;</string>
       <property name="title">
        <string>Edit</string>
       </property>
-      <layout class="QGridLayout" name="gridLayout_2">
+      <layout class="QGridLayout" name="gridLayout_9">
        <item row="0" column="1">
         <widget class="QToolBox" name="toolBox">
          <property name="sizePolicy">
@@ -75,14 +75,14 @@ font: 12pt &quot;Segoe UI&quot;;</string>
           </sizepolicy>
          </property>
          <property name="currentIndex">
-          <number>1</number>
+          <number>0</number>
          </property>
          <widget class="QWidget" name="page">
           <property name="geometry">
            <rect>
             <x>0</x>
             <y>0</y>
-            <width>368</width>
+            <width>316</width>
             <height>85</height>
            </rect>
           </property>
@@ -221,7 +221,7 @@ font: 12pt &quot;Segoe UI&quot;;</string>
            <rect>
             <x>0</x>
             <y>0</y>
-            <width>368</width>
+            <width>316</width>
             <height>85</height>
            </rect>
           </property>
@@ -283,50 +283,68 @@ font: 12pt &quot;Segoe UI&quot;;</string>
         </widget>
        </item>
        <item row="0" column="0" rowspan="2">
-        <layout class="QGridLayout" name="gridLayout">
+        <layout class="QGridLayout" name="gridLayout_2">
          <item row="0" column="0">
-          <widget class="QListWidget" name="listWidget">
-           <property name="sizePolicy">
-            <sizepolicy hsizetype="Preferred" vsizetype="Preferred">
-             <horstretch>0</horstretch>
-             <verstretch>0</verstretch>
-            </sizepolicy>
-           </property>
-           <property name="toolTip">
-            <string>change properties of the selected item</string>
-           </property>
-           <property name="styleSheet">
-            <string notr="true">font: 8pt &quot;Segoe UI&quot;;</string>
-           </property>
-           <property name="sizeAdjustPolicy">
-            <enum>QAbstractScrollArea::AdjustToContents</enum>
+          <widget class="QPushButton" name="pb_show_selected">
+           <property name="text">
+            <string>Show Selected</string>
            </property>
           </widget>
          </item>
-         <item row="1" column="0">
-          <layout class="QHBoxLayout" name="horizontalLayout">
-           <item>
-            <widget class="QLabel" name="label">
+         <item row="0" column="1">
+          <widget class="QPushButton" name="pb_show_all">
+           <property name="text">
+            <string>Show All</string>
+           </property>
+          </widget>
+         </item>
+         <item row="1" column="0" colspan="2">
+          <layout class="QGridLayout" name="gridLayout">
+           <item row="0" column="0">
+            <widget class="QListWidget" name="listWidget">
              <property name="sizePolicy">
-              <sizepolicy hsizetype="Preferred" vsizetype="Fixed">
+              <sizepolicy hsizetype="Preferred" vsizetype="Preferred">
                <horstretch>0</horstretch>
                <verstretch>0</verstretch>
               </sizepolicy>
              </property>
-             <property name="text">
-              <string>Change Selected To</string>
+             <property name="toolTip">
+              <string>change properties of the selected item</string>
              </property>
-             <property name="alignment">
-              <set>Qt::AlignRight|Qt::AlignTrailing|Qt::AlignVCenter</set>
+             <property name="styleSheet">
+              <string notr="true">font: 8pt &quot;Segoe UI&quot;;</string>
+             </property>
+             <property name="sizeAdjustPolicy">
+              <enum>QAbstractScrollArea::AdjustToContents</enum>
              </property>
             </widget>
            </item>
-           <item>
-            <widget class="QComboBox" name="cb_choose_color">
-             <property name="enabled">
-              <bool>true</bool>
-             </property>
-            </widget>
+           <item row="1" column="0">
+            <layout class="QHBoxLayout" name="horizontalLayout">
+             <item>
+              <widget class="QLabel" name="label">
+               <property name="sizePolicy">
+                <sizepolicy hsizetype="Preferred" vsizetype="Fixed">
+                 <horstretch>0</horstretch>
+                 <verstretch>0</verstretch>
+                </sizepolicy>
+               </property>
+               <property name="text">
+                <string>Change Selected To</string>
+               </property>
+               <property name="alignment">
+                <set>Qt::AlignRight|Qt::AlignTrailing|Qt::AlignVCenter</set>
+               </property>
+              </widget>
+             </item>
+             <item>
+              <widget class="QComboBox" name="cb_choose_color">
+               <property name="enabled">
+                <bool>true</bool>
+               </property>
+              </widget>
+             </item>
+            </layout>
            </item>
           </layout>
          </item>
@@ -343,7 +361,7 @@ font: 12pt &quot;Segoe UI&quot;;</string>
      <x>0</x>
      <y>0</y>
      <width>674</width>
-     <height>27</height>
+     <height>34</height>
     </rect>
    </property>
    <widget class="QMenu" name="menuFile">

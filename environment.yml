@@ -3,10 +3,6 @@ channels:
   - defaults
   - conda-forge
 dependencies:
-  - anaconda
-  - anaconda-client
-  - anaconda-navigator
-  - anaconda-project
   - pip
 
   - pip:
@@ -22,5 +18,6 @@ dependencies:
     - tifffile
     - xraylarch==0.9.51
     - pyshortcuts
+    - opencv-python
 
 

@@ -21,7 +21,18 @@ for i, name in zip(cmap_names, cmap_label1):
 
 for i, name in zip(cmap_combo, cmap_label2):
     cmap_dict[name] = (pg.colormap.get(i[0]).getLookupTable(alpha=True) +
-                       pg.colormap.get(i[1]).getLookupTable(alpha=True)) // 2
+                         pg.colormap.get(i[1]).getLookupTable(alpha=True))
+    cmap_dict[name][:,3] = 255
+'''
+grey = np.zeros((512,4))
+[grey+pg.colormap.get(i).getLookupTable(alpha=True) for i in cmap_names]
+'''
+grey = pg.colormap.get('CET-L13').getLookupTable(alpha=True)+\
+       pg.colormap.get('CET-L14').getLookupTable(alpha=True)+\
+       pg.colormap.get('CET-L15').getLookupTable(alpha=True)
+
+grey[:,3] = 255
+cmap_dict['grey'] = grey
 
 
 class jsonEncoder(json.JSONEncoder):
@@ -38,15 +49,19 @@ class jsonEncoder(json.JSONEncoder):
 
 class MultiChannelWindow(QtWidgets.QMainWindow):
 
-    def __init__(self):
+    def __init__(self, image_dict=None):
         super(MultiChannelWindow, self).__init__()
+        if image_dict is None:
+            image_dict = {}
         uic.loadUi(os.path.join(ui_path,'uis/mutlichannel.ui'), self)
 
         self.canvas = self.img_view.addPlot(title="")
         self.canvas.getViewBox().invertY(True)
         self.canvas.setAspectLocked(True)
-
         self.cb_choose_color.addItems([i for i in cmap_dict.keys()])
+
+        self.image_dict = image_dict
+        self.buildFromDictionary()
 
         # connections
         self.actionLoad.triggered.connect(self.createMuliColorAndList)
@@ -54,9 +69,20 @@ class MultiChannelWindow(QtWidgets.QMainWindow):
         self.cb_choose_color.currentTextChanged.connect(self.updateImageDictionary)
         self.pb_update_low_high.clicked.connect(self.updateImageDictionary)
         self.listWidget.itemClicked.connect(self.editImageProperties)
+        self.listWidget.itemDoubleClicked.connect(self.showOneImageOnly)
+        self.pb_show_selected.clicked.connect(self.showOneImageOnly)
+        self.pb_show_all.clicked.connect(self.showAllItems)
         self.actionLoad_State_File.triggered.connect(self.importState)
         self.actionSave_State.triggered.connect(self.exportState)
         self.actionSave_View.triggered.connect(self.saveImage)
+
+    def buildFromDictionary(self):
+        if self.image_dict != None:
+            self.createMultiColorView(self.image_dict)
+            self.displayImageNames(self.image_dict)
+        else:
+            pass
+
 
     def generateImageDictionary(self):
         """Creates a dictionary contains image path, color scheme chosen, throshold limits etc.
@@ -111,7 +137,7 @@ class MultiChannelWindow(QtWidgets.QMainWindow):
 
         filter = "TIFF (*.tiff);;TIF (*.tif)"
         file_name = QtWidgets.QFileDialog().getOpenFileName(self, "Open a Stack", '',
-                                                            'TIFF(*tiff)', filter)
+                                                            'TIFF(*tiff *tif);;all_files (*)', filter)
         if file_name[0]:
             self.imageDir = os.path.dirname(file_name[0])
             self.image_dict = {}
@@ -169,6 +195,34 @@ class MultiChannelWindow(QtWidgets.QMainWindow):
                              cmap_dict[path_and_color['Color']],
                              path_and_color['CmapLimits'],
                              path_and_color['Opacity'])
+
+    def showOneImageOnly(self):
+        editItem = self.listWidget.currentItem()
+        editRow = self.listWidget.currentRow()
+        for i in range(self.listWidget.count()):
+            if self.listWidget.item(i) == editItem:
+                editItemName = self.listWidget.item(i).text().split(',')[0]
+                self.image_dict[editItemName]['Opacity'] = 1
+
+            elif self.listWidget.item(i) != editItem:
+                editItemName = self.listWidget.item(i).text().split(',')[0]
+                self.image_dict[editItemName]['Opacity'] = 0
+
+        self.createMultiColorView(self.image_dict)
+        self.displayImageNames(self.image_dict)
+        self.listWidget.setCurrentRow(editRow)
+
+    def showAllItems(self):
+
+        editItem = self.listWidget.currentItem()
+        editRow = self.listWidget.currentRow()
+        for i in range(self.listWidget.count()):
+                editItemName = self.listWidget.item(i).text().split(',')[0]
+                self.image_dict[editItemName]['Opacity'] = 1
+
+        self.createMultiColorView(self.image_dict)
+        self.displayImageNames(self.image_dict)
+        self.listWidget.setCurrentRow(editRow)
 
     def displayImageNames(self, image_dictionary):
         """ Populate the list widget table with image name and color used to plot,
@@ -230,7 +284,7 @@ class MultiChannelWindow(QtWidgets.QMainWindow):
         self.sliderSetUp(im_array)
         cmap_limits = (self.sldr_low.value() * np.max(im_array) / 100,
                        self.sldr_high.value() * np.max(im_array) / 100)
-        self.low_high_vals.setText(f'low:{cmap_limits[0]:.2f},high:{cmap_limits[1]:.2f}')
+        self.low_high_vals.setText(f'low:{cmap_limits[0]:.3f},high:{cmap_limits[1]:.3f}')
         opacity = self.sldr_opacity.value()/100
         self.opacity_val.setText(str(opacity))
         self.image_dict[editItemName] = {'ImageName': editItemName,
@@ -264,11 +318,10 @@ class MultiChannelWindow(QtWidgets.QMainWindow):
 
     def importState(self):
         file_name = QtWidgets.QFileDialog().getOpenFileName(self, "Open a State File", '',
-                                                            'json file(*json)')
+                                                            'json file(*json);;all_files (*)')
         if file_name[0]:
             with open(file_name[0], 'r') as fp:
                 self.image_dict = json.load(fp)
-
 
             self.createMultiColorView(self.image_dict)
             self.displayImageNames(self.image_dict)

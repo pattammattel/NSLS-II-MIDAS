@@ -7,14 +7,14 @@
     <x>0</x>
     <y>0</y>
     <width>1089</width>
-    <height>887</height>
+    <height>854</height>
    </rect>
   </property>
   <property name="windowTitle">
    <string>XANES View</string>
   </property>
   <property name="styleSheet">
-   <string notr="true">font: 12pt &quot;MS Shell Dlg 2&quot;;
+   <string notr="true">font: 10pt &quot;Segoe UI&quot;;
 
 
 </string>
@@ -188,23 +188,7 @@ color: rgb(0, 85, 255);</string>
       </item>
       <item row="0" column="1">
        <layout class="QGridLayout" name="gridLayout_4">
-        <item row="0" column="1">
-         <widget class="QPushButton" name="pb_save_chem_map">
-          <property name="sizePolicy">
-           <sizepolicy hsizetype="Preferred" vsizetype="Fixed">
-            <horstretch>0</horstretch>
-            <verstretch>0</verstretch>
-           </sizepolicy>
-          </property>
-          <property name="styleSheet">
-           <string notr="true"/>
-          </property>
-          <property name="text">
-           <string>Save (.tiff)</string>
-          </property>
-         </widget>
-        </item>
-        <item row="2" column="0" colspan="2">
+        <item row="2" column="0" colspan="3">
          <widget class="QScrollBar" name="hsb_chem_map">
           <property name="sizePolicy">
            <sizepolicy hsizetype="Preferred" vsizetype="Fixed">
@@ -227,7 +211,7 @@ color: rgb(0, 85, 255);</string>
           </property>
          </widget>
         </item>
-        <item row="1" column="0" colspan="2">
+        <item row="1" column="0" colspan="3">
          <widget class="ImageView" name="image_view_maps">
           <property name="sizePolicy">
            <sizepolicy hsizetype="Expanding" vsizetype="Expanding">
@@ -249,20 +233,23 @@ color: rgb(0, 85, 255);</string>
            <string notr="true"/>
           </property>
           <property name="text">
-           <string>Chemical Map</string>
+           <string>XANES Maps</string>
           </property>
           <property name="alignment">
            <set>Qt::AlignCenter</set>
           </property>
          </widget>
         </item>
+        <item row="0" column="1">
+         <widget class="QPushButton" name="pb_showMultiColor">
+          <property name="text">
+           <string> Opan as RGBCMY Image </string>
+          </property>
+         </widget>
+        </item>
        </layout>
       </item>
-     </layout>
-    </item>
-    <item row="2" column="0">
-     <layout class="QGridLayout" name="gridLayout_10">
-      <item row="0" column="0">
+      <item row="1" column="0">
        <layout class="QGridLayout" name="gridLayout_8">
         <item row="0" column="0">
          <widget class="QLabel" name="label_5">
@@ -274,36 +261,13 @@ color: rgb(0, 85, 255);</string>
           </property>
          </widget>
         </item>
-        <item row="0" column="1">
-         <widget class="QPushButton" name="pb_save_spe_fit">
-          <property name="styleSheet">
-           <string notr="true"/>
-          </property>
-          <property name="text">
-           <string>Export as CSV</string>
-          </property>
-         </widget>
-        </item>
-        <item row="1" column="0" colspan="2">
+        <item row="1" column="0">
          <widget class="PlotWidget" name="spectrum_view"/>
         </item>
        </layout>
       </item>
-      <item row="0" column="1">
+      <item row="1" column="1">
        <layout class="QGridLayout" name="gridLayout_7">
-        <item row="0" column="0">
-         <widget class="QLabel" name="label_9">
-          <property name="styleSheet">
-           <string notr="true"/>
-          </property>
-          <property name="text">
-           <string>References</string>
-          </property>
-          <property name="alignment">
-           <set>Qt::AlignCenter</set>
-          </property>
-         </widget>
-        </item>
         <item row="0" column="1">
          <widget class="QPushButton" name="pb_edit_refs">
           <property name="sizePolicy">
@@ -313,7 +277,20 @@ color: rgb(0, 85, 255);</string>
            </sizepolicy>
           </property>
           <property name="text">
-           <string>Advanced Options</string>
+           <string>      Advanced Options       </string>
+          </property>
+         </widget>
+        </item>
+        <item row="0" column="0">
+         <widget class="QLabel" name="label_9">
+          <property name="styleSheet">
+           <string notr="true"/>
+          </property>
+          <property name="text">
+           <string>     References      </string>
+          </property>
+          <property name="alignment">
+           <set>Qt::AlignCenter</set>
           </property>
          </widget>
         </item>
@@ -332,17 +309,32 @@ color: rgb(0, 85, 255);</string>
      <x>0</x>
      <y>0</y>
      <width>1089</width>
-     <height>25</height>
+     <height>29</height>
     </rect>
    </property>
    <widget class="QMenu" name="menuFile">
     <property name="title">
-     <string>File</string>
+     <string>Image</string>
     </property>
-    <addaction name="actionexportResults"/>
-    <addaction name="actionExport_Ref_Plot"/>
+    <addaction name="actionSave_Chem_Map"/>
+    <addaction name="actionSave_R_factor_Image"/>
+   </widget>
+   <widget class="QMenu" name="menuSpectrum_Data">
+    <property name="title">
+     <string>Spectrum</string>
+    </property>
+    <addaction name="actionactionExport_Ref_Plot"/>
+   </widget>
+   <widget class="QMenu" name="menuFit">
+    <property name="title">
+     <string>Fit</string>
+    </property>
+    <addaction name="actionExport_Fit_Stats"/>
+    <addaction name="actionSave_Live_Fit_Data"/>
    </widget>
    <addaction name="menuFile"/>
+   <addaction name="menuSpectrum_Data"/>
+   <addaction name="menuFit"/>
   </widget>
   <widget class="QStatusBar" name="statusbar"/>
   <action name="actionexportResults">
@@ -353,6 +345,31 @@ color: rgb(0, 85, 255);</string>
   <action name="actionExport_Ref_Plot">
    <property name="text">
     <string>Export Ref. Plot</string>
+   </property>
+  </action>
+  <action name="actionSave_Chem_Map">
+   <property name="text">
+    <string>Save Chem Map</string>
+   </property>
+  </action>
+  <action name="actionSave_R_factor_Image">
+   <property name="text">
+    <string>Save R-factor Image</string>
+   </property>
+  </action>
+  <action name="actionactionExport_Ref_Plot">
+   <property name="text">
+    <string>actionExport_Ref_Plot</string>
+   </property>
+  </action>
+  <action name="actionExport_Fit_Stats">
+   <property name="text">
+    <string>Export Fit Stats</string>
+   </property>
+  </action>
+  <action name="actionSave_Live_Fit_Data">
+   <property name="text">
+    <string>Save Live Fit Data</string>
    </property>
   </action>
  </widget>
