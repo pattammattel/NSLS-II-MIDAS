@@ -785,11 +785,11 @@ class midasWindow(QtWidgets.QMainWindow):
 
         try:
             self.spectrum_view.plot(self.xdata, self.mean_spectra,
-                                    pen = pg.mkPen(pg.mkColor(255,255,255,255), width = self.plotWidth),
+                                    pen = pg.mkPen(pg.mkColor(5,255,5,255), width = self.plotWidth),
                                     clear=True, symbol='o',symbolSize = 6,symbolBrush = 'r',
                                     name='ROI Spectrum')
         except:
-            self.spectrum_view.plot(self.mean_spectra, clear=True, pen = pg.mkPen(pg.mkColor(255,255,255,255),
+            self.spectrum_view.plot(self.mean_spectra, clear=True, pen = pg.mkPen(pg.mkColor(5,255,5,255),
                                                                                   width = self.plotWidth),
                                     symbol='o',symbolSize = 6,symbolBrush = 'r',name='ROI Spectrum')
 

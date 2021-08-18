@@ -146,11 +146,8 @@ def background_subtraction(img_stack, bg_percentage=10):
     ref_image = np.reshape(img_stack.mean(0), (b * c))
     bg_ratio = int((b * c) * 0.01 * bg_percentage)
     bg_ = np.max(sorted(ref_image)[0:bg_ratio])
-
-    bg_stack = np.ones((a, b, c)) * bg_
-
-    bged_img_stack = img_stack - bg_stack
-    return remove_nan_inf(bged_img_stack)
+    bged_img_stack = img_stack - bg_[:, np.newaxis, np.newaxis]
+    return bged_img_stack
 
 def background_subtraction2(img_stack, bg_percentage=10):
     img_stack = remove_nan_inf(img_stack)
@@ -175,11 +172,11 @@ def background1(img_stack):
     return bg
 
 def get_sum_spectra(image_array):
-    spec = np.sum(np.sum(image_array, axis=1), axis=1)
+    spec = np.sum(image_array, axis=(1,2))
     return spec
 
 def get_mean_spectra(image_array):
-    spec = np.mean(np.mean(image_array, axis=1), axis=1)
+    spec = np.mean(image_array, axis=(1,2))
     return spec
 
 def flatten_(image_array):

@@ -101,6 +101,7 @@ class ComponentViewer(QtWidgets.QMainWindow):
         self.hs_comp_number.valueChanged.connect(self.update_image)
         self.actionSave.triggered.connect(self.save_comp_data)
         self.pb_openScatterPlot.clicked.connect(self.openScatterPlot)
+        self.pb_showMultiColor.clicked.connect(self.generateMultiColorView)
 
     def update_image(self):
         im_index = self.hs_comp_number.value()
@@ -146,6 +147,21 @@ class ComponentViewer(QtWidgets.QMainWindow):
             np.savetxt(str(file_name[0]) + '_component_spec.txt', self.comp_spectra)
         else:
             pass
+
+    def generateMultiColorView(self):
+        self.multichanneldict = {}
+
+        for n, (colorName, image) in enumerate(zip(cmap_dict.keys(), self.comp_stack.transpose(0, 1, 2))):
+            low, high = np.min(image), np.max(image)
+            self.multichanneldict[f'Image {n + 1}'] = {'ImageName': f'Image {n + 1}',
+                                                 'ImageDir': '.',
+                                                 'Image': image,
+                                                 'Color': colorName,
+                                                 'CmapLimits': (low, high),
+                                                 'Opacity': 1.0
+                                                 }
+        self.muli_color_window = MultiChannelWindow(image_dict=self.multichanneldict)
+        self.muli_color_window.show()
 
     # add energy column
 
