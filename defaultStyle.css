@@ -2,6 +2,11 @@
 QPushButton {
 background-color: rgb(175, 236, 255);
 color: rgb(255, 5,0);
+font: 12pt "Segoe UI";
+}
+
+QLabel {
+font: 12pt "Segoe UI";
 }
 
 QSlider::groove:horizontal {
