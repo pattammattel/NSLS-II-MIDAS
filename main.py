@@ -227,8 +227,8 @@ class midasWindow(QtWidgets.QMainWindow):
 
             for im_file in self.file_name:
                 img = tf.imread(im_file)
-                all_images.append(img.T) #row major image
-            self.im_stack = np.dstack(all_images).T
+                all_images.append(img) #row major image
+            self.im_stack = np.dstack(all_images).transpose((2,0,1))
             self.avgIo = 1  # I0 is only applicable to XRF h5 files
             self.sb_zrange2.setValue(self.im_stack.shape[0])
 
