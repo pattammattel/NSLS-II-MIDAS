@@ -11,7 +11,7 @@
     <x>0</x>
     <y>0</y>
     <width>1364</width>
-    <height>1034</height>
+    <height>1060</height>
    </rect>
   </property>
   <property name="sizePolicy">
@@ -42,7 +42,7 @@
     </sizepolicy>
    </property>
    <property name="styleSheet">
-    <string notr="true">
+    <string notr="true">font: 10pt &quot;Segoe UI&quot;;
 
 
 QPushButton {
@@ -137,7 +137,7 @@ border-radius: 4px;
           <string notr="true"/>
          </property>
          <property name="currentIndex">
-          <number>1</number>
+          <number>0</number>
          </property>
          <widget class="QWidget" name="page">
           <property name="geometry">
@@ -554,19 +554,6 @@ border-radius: 4px;
               </item>
              </layout>
             </widget>
-           </item>
-           <item row="2" column="0">
-            <spacer name="verticalSpacer_7">
-             <property name="orientation">
-              <enum>Qt::Vertical</enum>
-             </property>
-             <property name="sizeHint" stdset="0">
-              <size>
-               <width>20</width>
-               <height>40</height>
-              </size>
-             </property>
-            </spacer>
            </item>
           </layout>
          </widget>
@@ -1073,15 +1060,15 @@ border-radius: 4px;
           <bool>true</bool>
          </property>
          <property name="currentIndex">
-          <number>0</number>
+          <number>2</number>
          </property>
          <widget class="QWidget" name="page_5">
           <property name="geometry">
            <rect>
             <x>0</x>
             <y>0</y>
-            <width>334</width>
-            <height>189</height>
+            <width>411</width>
+            <height>318</height>
            </rect>
           </property>
           <attribute name="label">
@@ -1214,8 +1201,8 @@ border-radius: 4px;
            <rect>
             <x>0</x>
             <y>0</y>
-            <width>313</width>
-            <height>185</height>
+            <width>411</width>
+            <height>318</height>
            </rect>
           </property>
           <attribute name="label">
@@ -1335,8 +1322,8 @@ border-radius: 4px;
            <rect>
             <x>0</x>
             <y>0</y>
-            <width>313</width>
-            <height>180</height>
+            <width>411</width>
+            <height>318</height>
            </rect>
           </property>
           <attribute name="label">
@@ -1504,7 +1491,7 @@ border-radius: 4px;
               </sizepolicy>
              </property>
              <property name="text">
-              <string>Send Live to Collector</string>
+              <string>Send to Collector</string>
              </property>
             </widget>
            </item>
@@ -1592,14 +1579,14 @@ border-radius: 4px;
            <item row="2" column="0">
             <widget class="QPushButton" name="pb_collect_clear">
              <property name="text">
-              <string>Clear</string>
+              <string>  Clear  </string>
              </property>
             </widget>
            </item>
            <item row="2" column="2">
             <widget class="QPushButton" name="pb_saveCollectorPlot">
              <property name="text">
-              <string>Save</string>
+              <string>  Save   </string>
              </property>
             </widget>
            </item>
@@ -1670,7 +1657,7 @@ border-radius: 4px;
        <property name="topMargin">
         <number>11</number>
        </property>
-       <item row="1" column="0">
+       <item row="3" column="0">
         <widget class="QGroupBox" name="groupBox_2">
          <property name="sizePolicy">
           <sizepolicy hsizetype="Preferred" vsizetype="Preferred">
@@ -1769,7 +1756,7 @@ border-radius: 4px;
          </layout>
         </widget>
        </item>
-       <item row="0" column="0">
+       <item row="2" column="0">
         <widget class="QGroupBox" name="groupBox_8">
          <property name="styleSheet">
           <string notr="true">font: 9pt &quot;Segoe UI&quot;;</string>
@@ -1885,20 +1872,7 @@ border-radius: 4px;
          </layout>
         </widget>
        </item>
-       <item row="2" column="0">
-        <spacer name="verticalSpacer_4">
-         <property name="orientation">
-          <enum>Qt::Vertical</enum>
-         </property>
-         <property name="sizeHint" stdset="0">
-          <size>
-           <width>20</width>
-           <height>40</height>
-          </size>
-         </property>
-        </spacer>
-       </item>
-       <item row="4" column="0">
+       <item row="5" column="0">
         <widget class="QToolBox" name="toolBox_3">
          <property name="sizePolicy">
           <sizepolicy hsizetype="Preferred" vsizetype="Preferred">
@@ -1915,7 +1889,7 @@ border-radius: 4px;
             <x>0</x>
             <y>0</y>
             <width>361</width>
-            <height>136</height>
+            <height>193</height>
            </rect>
           </property>
           <attribute name="label">
@@ -1989,7 +1963,7 @@ border-radius: 4px;
             <x>0</x>
             <y>0</y>
             <width>361</width>
-            <height>168</height>
+            <height>193</height>
            </rect>
           </property>
           <attribute name="label">
@@ -2397,6 +2371,16 @@ border-radius: 4px;
          </widget>
         </widget>
        </item>
+       <item row="1" column="0">
+        <widget class="QListWidget" name="listWidget"/>
+       </item>
+       <item row="0" column="0">
+        <widget class="QLabel" name="label_26">
+         <property name="text">
+          <string>Available Stacks</string>
+         </property>
+        </widget>
+       </item>
       </layout>
      </widget>
     </item>
@@ -2484,6 +2468,8 @@ border-radius: 4px;
     </property>
     <addaction name="actionExport_Norm_Params"/>
     <addaction name="actionImport_Norm_Params"/>
+    <addaction name="actionSave_Sum_Spectrum"/>
+    <addaction name="actionSave_Mean_Spectrum"/>
    </widget>
    <widget class="QMenu" name="menuImage">
     <property name="title">
@@ -2491,6 +2477,7 @@ border-radius: 4px;
     </property>
     <addaction name="actionSave_Sum_Image"/>
     <addaction name="actionSubtract_ROI_BG"/>
+    <addaction name="actionSave_Current_Image_as_Mask"/>
    </widget>
    <addaction name="menuFile"/>
    <addaction name="menuImage"/>
@@ -2706,7 +2693,7 @@ border-radius: 4px;
   </action>
   <action name="actionModern">
    <property name="text">
-    <string>Modern</string>
+    <string>Vivid</string>
    </property>
   </action>
   <action name="actionSave_Sum_Image">
@@ -2792,6 +2779,21 @@ border-radius: 4px;
   <action name="actn1">
    <property name="text">
     <string>1</string>
+   </property>
+  </action>
+  <action name="actionSave_Sum_Spectrum">
+   <property name="text">
+    <string>Save Sum Spectrum</string>
+   </property>
+  </action>
+  <action name="actionSave_Mean_Spectrum">
+   <property name="text">
+    <string>Save Mean Spectrum</string>
+   </property>
+  </action>
+  <action name="actionSave_Current_Image_as_Mask">
+   <property name="text">
+    <string>Save Current Image as Mask</string>
    </property>
   </action>
  </widget>
