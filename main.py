@@ -171,7 +171,7 @@ class midasWindow(QtWidgets.QMainWindow):
         The 'self.load_stack()' recognizes 'self.filename as list and create the stack.
         """
         self.energy = []
-        filter = "TIFF (*.tiff);;TIF (*.tif)"
+        filter = "TIFF (*.tiff);;TIF (*.tif);;all_files (*)"
         file_name = QFileDialog()
         file_name.setFileMode(QFileDialog.ExistingFiles)
         names = file_name.getOpenFileNames(self, "Open files", " ", filter)
@@ -227,7 +227,7 @@ class midasWindow(QtWidgets.QMainWindow):
 
             for im_file in self.file_name:
                 img = tf.imread(im_file)
-                all_images.append(img)
+                all_images.append(img.T) #row major image
             self.im_stack = np.dstack(all_images).T
             self.avgIo = 1  # I0 is only applicable to XRF h5 files
             self.sb_zrange2.setValue(self.im_stack.shape[0])
