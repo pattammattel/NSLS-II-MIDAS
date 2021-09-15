@@ -10,7 +10,7 @@ dependencies:
     - numpy
     - pandas
     - pyqt5
-    - pyqtgraph
+    - pyqtgraph==0.12.2
     - pystackreg
     - scikit-image
     - scikit-learn
