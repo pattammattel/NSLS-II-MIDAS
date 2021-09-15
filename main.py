@@ -28,7 +28,7 @@ class midasWindow(QtWidgets.QMainWindow):
 
     def __init__(self, im_stack=None, energy=[], refs=[]):
         super(midasWindow, self).__init__()
-        uic.loadUi(os.path.join(ui_path, 'uis/mainwindow_admin.ui'), self)
+        uic.loadUi(os.path.join(ui_path, 'uis/midasMainwindow.ui'), self)
         self.im_stack = im_stack
         self.energy = energy
         self.refs = refs
@@ -45,6 +45,10 @@ class midasWindow(QtWidgets.QMainWindow):
         self.actionDarkMode.triggered.connect(self.darkMode)
         self.actionDefault.triggered.connect(self.defaultMode)
         self.actionModern.triggered.connect(self.modernMode)
+
+        #self.setToolTipsVisible(True)
+        for menuItem in self.findChildren(QtWidgets.QMenu):
+            menuItem.setToolTipsVisible(True)
 
         # plotview options
         self.actionWhite.triggered.connect(lambda: self.spectrum_view.setBackground('w'))
@@ -1109,6 +1113,12 @@ class midasWindow(QtWidgets.QMainWindow):
                                             nnorm=norm_order, nvict=0, pre1=pre1_, pre2=pre2_,
                                             norm1=norm1_, norm2=norm2_)
         #self.im_stack = self.displayedStack
+
+    def transposeStack(self):
+        self.im_stack = self.displayedStack = np.transpose(self.displayedStack, (2,1,0))
+
+    def swapStackXY(self):
+        self.im_stack = self.displayedStack = np.transpose(self.displayedStack, (0,2,1))
 
     def removeROIBGStack(self):
         self.displayedStack = subtractBackground(self.displayedStack, self.mean_spectra)
