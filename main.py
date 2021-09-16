@@ -12,6 +12,7 @@ from StackPlot import *
 from StackCalcs import *
 from MaskView import *
 from stackInfo import *
+from MultiChannel import *
 
 logger = logging.getLogger()
 
@@ -74,8 +75,13 @@ class midasWindow(QtWidgets.QMainWindow):
         self.actionLoad_Energy.triggered.connect(self.select_elist)
         self.menuFile.setToolTipsVisible(True)
 
+        #Accessories
         self.actionOpen_Mask_Gen.triggered.connect(self.openMaskMaker)
-        self.cb_transpose.stateChanged.connect(self.transpose_stack)
+        self.actionMultiColor.triggered.connect(self.openMultiColorWindow)
+
+        #calculations
+        self.pb_transpose_stack.clicked.connect(lambda: self.threadMaker(self.transposeStack))
+        self.pb_swapXY_stack.clicked.connect(lambda: self.threadMaker(self.swapStackXY))
         self.pb_reset_img.clicked.connect(self.reloadImageStack)
         self.pb_crop.clicked.connect(self.crop_to_dim)
         self.pb_crop.clicked.connect(self.view_stack)
@@ -154,6 +160,10 @@ class midasWindow(QtWidgets.QMainWindow):
             self.update_spectrum()
         except:
             pass
+
+    def openMultiColorWindow(self):
+        self.multicolorwindow = MultiChannelWindow()
+        self.multicolorwindow.show()
 
     def threadMaker(self, funct):
         # Pass the function to execute
@@ -1121,7 +1131,7 @@ class midasWindow(QtWidgets.QMainWindow):
         self.im_stack = self.displayedStack = np.transpose(self.displayedStack, (0,2,1))
 
     def removeROIBGStack(self):
-        self.displayedStack = subtractBackground(self.displayedStack, self.mean_spectra)
+        self.im_stack = self.displayedStack = subtractBackground(self.displayedStack, self.mean_spectra)
 
     def resetCollectorSpec(self):
         pass
