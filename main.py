@@ -3,7 +3,7 @@
 # Author: Ajith Pattammattel
 # First Version on:06-23-2020
 
-import logging, sys, webbrowser, traceback
+import logging, sys, webbrowser, traceback, os
 
 from PyQt5 import QtWidgets, uic, QtCore
 from PyQt5.QtWidgets import QMessageBox, QFileDialog, QDesktopWidget, QApplication, QSizePolicy
@@ -12,7 +12,6 @@ from StackPlot import *
 from StackCalcs import *
 from MaskView import *
 from stackInfo import *
-from MultiChannel import *
 
 logger = logging.getLogger()
 
@@ -75,6 +74,7 @@ class midasWindow(QtWidgets.QMainWindow):
         self.actionLoad_Energy.triggered.connect(self.select_elist)
         self.menuFile.setToolTipsVisible(True)
 
+
         #Accessories
         self.actionOpen_Mask_Gen.triggered.connect(self.openMaskMaker)
         self.actionMultiColor.triggered.connect(self.openMultiColorWindow)
@@ -100,8 +100,10 @@ class midasWindow(QtWidgets.QMainWindow):
          [self.cb_remove_edges, self.cb_upscale,
           self.cb_rebin]]
 
-        # stack info
-        self.pb_stack_info.clicked.connect(self.displayStackInfo)
+        # ToolBar
+        self.actionStack_Info.triggered.connect(self.displayStackInfo)
+        self.actionSave_Image.triggered.connect(self.save_disp_img)
+        self.actionExport_Stack.triggered.connect(self.save_stack)
 
         # ROI background
         self.actionSubtract_ROI_BG.triggered.connect(lambda: self.threadMaker(self.removeROIBGStack))
@@ -115,7 +117,6 @@ class midasWindow(QtWidgets.QMainWindow):
 
         # save_options
         self.actionSave_Sum_Image.triggered.connect(lambda: self.save_stack(saveSum=True))
-        self.pb_save_disp_img.clicked.connect(self.save_disp_img)
         self.pb_save_disp_spec.clicked.connect(self.save_disp_spec)
         self.actionSave_Energy_List.triggered.connect(self.saveEnergyList)
         self.pb_show_roi.clicked.connect(self.getROIMask)
@@ -164,6 +165,14 @@ class midasWindow(QtWidgets.QMainWindow):
     def openMultiColorWindow(self):
         self.multicolorwindow = MultiChannelWindow()
         self.multicolorwindow.show()
+
+    def openMaskMaker(self):
+        self.mask_window = MaskSpecViewer(xanes_stack=self.displayedStack, energy=self.energy)
+        self.mask_window.show()
+
+    def open_github_link(self):
+        webbrowser.open('https://github.com/pattammattel/NSLS-II-MIDAS/wiki')
+
 
     def threadMaker(self, funct):
         # Pass the function to execute
@@ -444,7 +453,6 @@ class midasWindow(QtWidgets.QMainWindow):
             logger.info("New Tranformation file available")
         self.im_stack = self.displayedStack
 
-
     def exportAlignTransformation(self):
         file_name = QFileDialog().getSaveFileName(self, "Save Transformation File", 'TranformationMatrix.npy',
                                                   'text file (*.npy)')
@@ -531,33 +539,7 @@ class midasWindow(QtWidgets.QMainWindow):
 
         if self.cb_log.isChecked():
 
-            if self.avgIo != 1:
-
-                self.displayedStack = remove_nan_inf(np.log10(self.displayedStack * self.avgIo))
-
-                if not self.log_warning:
-                    self.logMsgBox = QMessageBox()
-                    self.logMsgBox.setIcon(QMessageBox.Warning)
-                    self.logMsgBox.setText(f'Data will be multiplied with the average I0 value: {self.avgIo} '
-                                           f'\n before log to avoid negative peaks')
-
-                    self.logMsgBox.setWindowTitle("Log data Warning")
-                    self.logMsgBox.setStandardButtons(QMessageBox.Ok | QMessageBox.YesToAll)
-                    user_in = self.logMsgBox.exec_()
-
-                    if user_in == QMessageBox.Ok:
-                        self.displayedStack = remove_nan_inf(np.log10(self.displayedStack * self.avgIo))
-
-
-                    elif user_in == QMessageBox.YesToAll:
-                        self.log_warning = True
-                        self.displayedStack = remove_nan_inf(np.log10(self.displayedStack * self.avgIo))
-                else:
-                    self.displayedStack = remove_nan_inf(np.log10(self.displayedStack * self.avgIo))
-
-            else:
-                self.displayedStack = remove_nan_inf(np.log10(self.displayedStack))
-
+            self.displayedStack = remove_nan_inf(np.log10(self.displayedStack))
             logger.info('Log Stack is in use')
 
         if self.cb_smooth.isChecked():
@@ -628,9 +610,11 @@ class midasWindow(QtWidgets.QMainWindow):
         self.image_view.mousePressEvent = self.getPointSpectrum
         self.spec_roi.sigRegionChanged.connect(self.update_image_roi)
         self.spec_roi_math.sigRegionChangeFinished.connect(self.spec_roi_calc)
+        self.pb_apply_spec_calc.clicked.connect(self.spec_roi_calc)
         self.rb_math_roi.clicked.connect(self.update_spectrum)
         self.pb_add_roi_2.clicked.connect(self.math_img_roi_flag)
         self.image_roi_math.sigRegionChangeFinished.connect(self.image_roi_calc)
+        self.pb_apply_img_calc.clicked.connect(self.image_roi_calc)
 
         [rbs.clicked.connect(self.setImageROI) for rbs in
          [self.rb_poly_roi, self.rb_elli_roi, self.rb_rect_roi,
@@ -980,7 +964,7 @@ class midasWindow(QtWidgets.QMainWindow):
     def save_stack(self, saveSum=False):
 
         # self.update_stack()
-        file_name = QFileDialog().getSaveFileName(self, "Save image data", 'image.tiff', 'image file(*tiff *tif )')
+        file_name = QFileDialog().getSaveFileName(self, "Save image data", 'image_data.tiff', 'image file(*tiff *tif )')
         if file_name[0]:
             if not saveSum:
                 tf.imsave(str(file_name[0]), self.displayedStack)
@@ -1131,7 +1115,7 @@ class midasWindow(QtWidgets.QMainWindow):
         self.im_stack = self.displayedStack = np.transpose(self.displayedStack, (0,2,1))
 
     def removeROIBGStack(self):
-        self.im_stack = self.displayedStack = subtractBackground(self.displayedStack, self.mean_spectra)
+        self.displayedStack = subtractBackground(self.displayedStack, self.mean_spectra)
 
     def resetCollectorSpec(self):
         pass
@@ -1235,13 +1219,6 @@ class midasWindow(QtWidgets.QMainWindow):
 
         self._new_window5 = XANESViewer(self.displayedStack, self.xdata, self.refs, self.ref_names)
         self._new_window5.show()
-
-    def openMaskMaker(self):
-        self.mask_window = MaskSpecViewer(xanes_stack=self.displayedStack, energy=self.energy)
-        self.mask_window.show()
-
-    def open_github_link(self):
-        webbrowser.open('https://github.com/pattammattel/NSLS-II-MIDAS/wiki')
 
     # Thread Signals
 

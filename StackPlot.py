@@ -66,7 +66,6 @@ class singleStackViewer(QtWidgets.QMainWindow):
         else:
             pass
 
-
 class ComponentViewer(QtWidgets.QMainWindow):
 
     def __init__(self, comp_stack, energy, comp_spectra, decon_spectra, decomp_map):
@@ -165,7 +164,6 @@ class ComponentViewer(QtWidgets.QMainWindow):
 
     # add energy column
 
-
 class ClusterViewer(QtWidgets.QMainWindow):
 
     def __init__(self, decon_images, energy, X_cluster, decon_spectra):
@@ -248,7 +246,6 @@ class ClusterViewer(QtWidgets.QMainWindow):
         self.muli_color_window = MultiChannelWindow(image_dict=self.multichanneldict)
         self.muli_color_window.show()
 
-
 class XANESViewer(QtWidgets.QMainWindow):
 
     def __init__(self, im_stack=None, e_list=None, refs=None, ref_names=None):
@@ -271,10 +268,16 @@ class XANESViewer(QtWidgets.QMainWindow):
         (self.dim1, self.dim2, self.dim3) = self.im_stack.shape
         self.cn = int(self.dim2 // 2)
         self.sz = np.max([int(self.dim2 * 0.15), int(self.dim3 * 0.15)])
-        self.image_roi = pg.PolyLineROI([[0, 0], [0, self.sz], [self.sz, self.sz], [self.sz, 0]],
-                                        pos=(int(self.dim2 // 2), int(self.dim3 // 2)),
-                                        maxBounds=QtCore.QRect(0, 0, self.dim3, self.dim2), closed=True)
-        self.image_roi.addTranslateHandle([self.sz // 2, self.sz // 2], [2, 2])
+        self.image_roi = pg.RectROI([int(self.dim3 // 2), int(self.dim2 // 2)],
+                                    [self.sz, self.sz], pen='w', maxBounds=QtCore.QRectF(0, 0, self.dim3, self.dim2))
+
+        self.image_roi.addTranslateHandle([0, 0], [2, 2])
+        self.image_roi.addRotateHandle([0, 1], [2, 2])
+
+        #self.image_roi = pg.PolyLineROI([[0, 0], [0, self.sz], [self.sz, self.sz], [self.sz, 0]],
+                                        #pos=(int(self.dim2 // 2), int(self.dim3 // 2)),
+                                        #maxBounds=QtCore.QRect(0, 0, self.dim3, self.dim2), closed=True)
+        #self.image_roi.addTranslateHandle([self.sz // 2, self.sz // 2], [2, 2])
 
         self.stack_center = int(self.dim1 // 2)
         self.stack_width = int(self.dim1 * 0.05)
@@ -498,7 +501,6 @@ class XANESViewer(QtWidgets.QMainWindow):
         else:
             pass
 
-
 class RefChooser(QtWidgets.QMainWindow):
     choosenRefsSignal: pyqtSignal = QtCore.pyqtSignal(list)
     fitResultsSignal: pyqtSignal = QtCore.pyqtSignal(np.ndarray, float, np.ndarray)
@@ -525,7 +527,7 @@ class RefChooser(QtWidgets.QMainWindow):
         self.selectionLine = pg.InfiniteLine(pos=1, angle=90, pen=pg.mkPen('m', width=2.5),
                                              movable=True, bounds=None, label='Move Me!')
         self.stat_view.setLabel('bottom', 'Fit ID')
-        self.stat_view.setLabel('left', 'R-Factor')
+        self.stat_view.setLabel('left', 'Reduced Chi^2')
 
         for n, i in enumerate(self.ref_names):
             self.cb_i = QtWidgets.QCheckBox(self.ref_box_frame)
@@ -592,15 +594,16 @@ class RefChooser(QtWidgets.QMainWindow):
             self.statusbar.showMessage(f"{n + 1}/{tot_combo}")
             selectedRefs = (list((str(self.ref_names[0]),) + refs))
             self.fit_combo_progress.setValue((n + 1) * 100 / tot_combo)
-            self.stat, self.coeffs_arr = xanes_fitting_Line(self.im_stack, self.e_list + self.e_shift,
+            self.stat, self.coeffs_arr = xanes_fitting_Binned(self.im_stack, self.e_list + self.e_shift,
                                                             self.refs[selectedRefs], method=self.fit_model)
 
-            self.rfactor_list.append(self.stat['R_Factor'])
-            self.stat_view.plot(x=np.arange(n + 1), y=self.rfactor_list, clear=True, title='R-Factor',
+            self.rfactor_list.append(self.stat['Reduced Chi_Square'])
+            self.stat_view.plot(x=np.arange(n + 1), y=self.rfactor_list, clear=True, title='Reduced Chi^2',
                                 pen=pg.mkPen('y', width=2, style=QtCore.Qt.DotLine), symbol='o')
 
             resultsDict = {'Fit Number': n, 'References': str(selectedRefs[1:]),
                            'Coefficients': str(np.around(self.coeffs_arr, 4)),
+                           'Sum of Coefficients' :str(np.around(np.sum(self.coeffs_arr),4)),
                            'R-Factor': self.stat['R_Factor'], 'R^2': self.stat['R_Square'],
                            'chi^2': self.stat['Chi_Square'], 'red-chi^2': self.stat['Reduced Chi_Square']}
 
@@ -681,7 +684,6 @@ class RefChooser(QtWidgets.QMainWindow):
             self.pb_apply.setEnabled(True)
         else:
             self.pb_apply.setEnabled(False)
-
 
 class ScatterPlot(QtWidgets.QMainWindow):
 
@@ -782,7 +784,6 @@ class ScatterPlot(QtWidgets.QMainWindow):
 
         self.masked_img = singleStackViewer(img_selected * self.img1, gradient='bipolar')
         self.masked_img.show()
-
 
 class ComponentScatterPlot(QtWidgets.QMainWindow):
 

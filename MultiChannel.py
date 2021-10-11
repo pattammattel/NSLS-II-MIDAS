@@ -1,5 +1,9 @@
 import sys, os, json, collections
-import cv2
+try:
+	import cv2
+except: 
+	print("No open CV module found")
+	pass
 import numpy as np
 import pyqtgraph as pg
 from pyqtgraph.Qt import QtCore, QtGui, QtWidgets, uic

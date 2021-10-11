@@ -1,3 +1,5 @@
+''' Helper functions'''
+
 import numpy as np
 import pandas as pd
 import scipy.stats as stats
@@ -14,6 +16,7 @@ from pystackreg import StackReg
 from PyQt5 import QtCore
 from scipy.signal import savgol_filter
 from skimage.transform import resize
+from skimage import filters
 from sklearn import linear_model
 
 logger = logging.getLogger()
@@ -48,7 +51,7 @@ def get_xrf_data(h='h5file'):
 
                 Io = np.array(f['xrfmap/scalers/val'])[:, :, beamline_scalar[beamline]]
                 raw_xrf_stack = np.array(f['xrfmap/detsum/counts'])
-                norm_xrf_stack = raw_xrf_stack / Io[:, :, np.newaxis]
+                norm_xrf_stack = raw_xrf_stack
                 Io_avg = int(remove_nan_inf(Io).mean())
             else:
                 logger.error('Unknown Beamline Scalar')
@@ -61,7 +64,7 @@ def get_xrf_data(h='h5file'):
         beamline = 'XFM'
         raw_xrf_stack = np.array(f['xrmmap/mcasum/counts'])
         Io = np.array(f['xrmmap/scalars/I0'])
-        norm_xrf_stack = raw_xrf_stack / Io[:, :, np.newaxis]
+        norm_xrf_stack = raw_xrf_stack 
         Io_avg = int(remove_nan_inf(Io).mean())
 
     else:
@@ -75,7 +78,7 @@ def get_xrf_data(h='h5file'):
         mono_e = 12000
         logger.info(f'Unable to get Excitation energy from the h5 data; using default value {mono_e} KeV')
 
-    return remove_nan_inf(norm_xrf_stack.transpose((2,0,1))), mono_e + 1000, beamline, Io_avg
+    return remove_nan_inf(norm_xrf_stack.transpose((2,0,1))), mono_e + 1500, beamline, Io_avg
 
 def remove_nan_inf(im):
     im = np.array(im, dtype=np.float32)
@@ -318,12 +321,14 @@ def pca_scree(im_stack):
     img_ = np.reshape(new_image, (x * y, z))
     pca = sd.PCA(z)
     pca.fit(img_)
-    var = pca.explained_variance_ratio_
+    #var = pca.explained_variance_ratio_
+    var = pca.singular_values_
 
     pca_scree_plot = pg.plot(var[:24], title = 'PCA Scree Plot',
                               pen = pg.mkPen('y', width=2, style=QtCore.Qt.DotLine), symbol='o')
+    pca_scree_plot.addLine(y=0)
     pca_scree_plot.setLabel('bottom', 'Component Number')
-    pca_scree_plot.setLabel('left', 'Explained Varience Ratio')
+    pca_scree_plot.setLabel('left', 'Singular Values')
 
 def decompose_stack(im_stack, decompose_method='PCA', n_components_=3):
     new_image = im_stack.transpose(2, 1, 0)
@@ -396,14 +401,14 @@ def getStats(spec,fit, num_refs = 2):
     y_mean = np.sum(spec)/len(spec)
     SS_tot = np.sum((spec-y_mean)**2)
     SS_res = np.sum((spec - fit)**2)
-    r_square = 1 - (SS_res/ SS_tot)
+    r_square = 1 - (SS_res/SS_tot)
     stats['R_Square'] = np.around(r_square,4)
 
     chisq = np.sum((spec - fit) ** 2)
     stats['Chi_Square'] = np.around(chisq,5)
 
-    red_chisq = chisq/(spec.size - num_refs)
-    stats['Reduced Chi_Square'] = np.around(red_chisq,5)
+    red_chisq = chisq/(len(spec) - num_refs)
+    stats['Reduced Chi_Square'] = red_chisq
 
     return stats
 
@@ -430,14 +435,18 @@ def xanes_fitting_1D(spec, e_list, refs, method='NNLS', alphaForLM = 0.01):
 
     return stats, coeffs
 
-def xanes_fitting(im_stack, e_list, refs, method='NNLS',alphaForLM = 0.1):
+def xanes_fitting(im_stack, e_list, refs, method='NNLS',alphaForLM = 0.1, binStack = False):
     """Linear combination fit of image data with reference standards"""
+    
+    if binStack:
+        im_stack = resize_stack(im_stack, scaling_factor = 4)
+
     en, im1, im2 = np.shape(im_stack)
     im_array = im_stack.reshape(en, im1 * im2)
     coeffs_arr = []
     r_factor_arr = []
     lasso = linear_model.Lasso(positive=True, alpha=alphaForLM)
-    for i in range(im1 * im2):
+    for n, i in enumerate(range(im1 * im2)):
         stats, coeffs = xanes_fitting_1D(im_array[:, i], e_list, refs, method=method, alphaForLM=alphaForLM)
         coeffs_arr.append(coeffs)
         r_factor_arr.append(stats['R_Factor'])
@@ -464,6 +473,37 @@ def xanes_fitting_Line(im_stack, e_list, refs, method='NNLS',alphaForLM = 0.05):
     for key, vals in meanStats.items():
         meanStats[key] = np.around((vals/im1),5)
 
+    return meanStats, np.mean(coeffs_arr,axis=0)
+
+def xanes_fitting_Binned(im_stack, e_list, refs, method='NNLS',alphaForLM = 0.05):
+    """Linear combination fit of image data with reference standards"""
+    
+    im_stack = resize_stack(im_stack, scaling_factor = 10)
+    #use a simple filter to find threshold value
+    val = filters.threshold_otsu(im_stack[-1])
+    en, im1, im2 = np.shape(im_stack)
+    im_array = im_stack.reshape(en, im1 * im2)
+    coeffs_arr = []
+    meanStats = {'R_Factor':0,'R_Square':0,'Chi_Square':0,'Reduced Chi_Square':0}
+
+    specs_fitted = 0
+    total_spec = im1*im2
+    for i in range(total_spec):
+        spec = im_array[:, i]
+        #do not fit low intensity/background regions
+        if spec[-1]>val:
+            specs_fitted +=1
+            stats, coeffs = xanes_fitting_1D(spec/spec[-1], e_list, refs,
+                                            method=method, alphaForLM=alphaForLM)
+            coeffs_arr.append(coeffs)
+            for key in stats.keys():
+                meanStats[key] += stats[key]
+        else:
+            pass
+
+    for key, vals in meanStats.items():
+        meanStats[key] = np.around((vals/specs_fitted),6)
+    #print(f"{specs_fitted}/{total_spec}")
     return meanStats, np.mean(coeffs_arr,axis=0)
 
 def create_df_from_nor(athenafile='fe_refs.nor'):
@@ -641,8 +681,3 @@ def modifyStack(raw_stack, normalizeStack = False, normToPoint = -1,
         modStack = normalize(raw_stack, norm_point=normToPoint)
     else:
         pass
-
-
-
-
-

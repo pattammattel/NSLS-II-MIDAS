@@ -1,6 +1,7 @@
 QWidget { 
 background-color: rgb(60, 60, 60);
 color: rgb(255, 255, 255);
+font: 10pt "Segoe UI";
 }
 
 QPushButton {
