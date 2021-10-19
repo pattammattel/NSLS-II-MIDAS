@@ -5,6 +5,8 @@ import pyqtgraph.exporters
 import numpy as np
 import logging
 from itertools import combinations
+from scipy.stats import linregress
+import scipy.stats as stats
 
 from PyQt5 import QtWidgets, QtCore, QtGui, uic, QtTest
 from PyQt5.QtGui import QMovie
@@ -492,7 +494,6 @@ class XANESViewer(QtWidgets.QMainWindow):
         else:
             pass
 
-
     def exportFitResults(self):
         file_name = QFileDialog().getSaveFileName(self, "save txt", 'xanes_1D_fit_results.txt', 'txt data (*txt)')
         if file_name[0]:
@@ -568,13 +569,33 @@ class RefChooser(QtWidgets.QMainWindow):
         self.populateChecked()
         self.choosenRefsSignal.emit(self.onlyCheckedBoxes)
 
-    def generateRefList(self, ref_list, maxCombo):
-        iter_list = []
-        i = 1
-        while i < maxCombo + 1:
-            iter_list += list(combinations(ref_list, i))
-            i += 1
-        return len(iter_list), iter_list
+    def generateRefList(self, ref_list, maxCombo, minCombo=1):
+        
+        """
+        Creates a list of reference combinations for xanes fitting
+        
+        Paramaters;
+        
+        ref_list (list): list of ref names from the header
+        maxCombo (int): maximum number of ref lists in combination
+        minCombo (int): min number of ref lists in combination
+        
+        returns;
+
+        1. int: length of total number of combinations
+        2. list: all the combinations
+
+        """
+        
+        if not maxCombo>len(ref_list):
+
+            iter_list = []
+            while minCombo < maxCombo + 1:
+                iter_list += list(combinations(ref_list, minCombo))
+                minCombo += 1
+            return len(iter_list), iter_list
+
+        else: raise ValueError(" Maximum numbinations cannot be larger than number of list items")
 
     def displayCombinations(self):
         niter, self.iter_list = self.generateRefList(self.ref_names[1:], self.sb_max_combo.value())
@@ -582,12 +603,17 @@ class RefChooser(QtWidgets.QMainWindow):
 
     @QtCore.pyqtSlot()
     def tryAllCombo(self):
+        #empty list to to keep track and plot of reduced chi2 of all the fits 
         self.rfactor_list = []
+        
+        #create dataframe for the table
         self.df = pd.DataFrame(columns=['Fit Number', 'References', 'Coefficients',
-                                        'R-Factor', 'R^2', 'chi^2', 'red-chi^2'])
-
+                                        'R-Factor', 'R^2', 'chi^2', 'red-chi^2', 'Score'])
+        
+        #df columns is the header for the table widget
         self.tableWidget.setHorizontalHeaderLabels(self.df.columns)
         # self.iter_list = list(combinations(self.ref_names[1:],self.sb_max_combo.value()))
+        
         niter, self.iter_list = self.generateRefList(self.ref_names[1:], self.sb_max_combo.value())
         tot_combo = len(self.iter_list)
         for n, refs in enumerate(self.iter_list):
@@ -600,15 +626,19 @@ class RefChooser(QtWidgets.QMainWindow):
             self.rfactor_list.append(self.stat['Reduced Chi_Square'])
             self.stat_view.plot(x=np.arange(n + 1), y=self.rfactor_list, clear=True, title='Reduced Chi^2',
                                 pen=pg.mkPen('y', width=2, style=QtCore.Qt.DotLine), symbol='o')
+            
+            #arbitary number to rank the best fit
+            fit_score = (self.stat['R_Square']+np.sum(self.coeffs_arr))/(self.stat['R_Factor']+
+                                                                            self.stat['Reduced Chi_Square'])
 
             resultsDict = {'Fit Number': n, 'References': str(selectedRefs[1:]),
                            'Coefficients': str(np.around(self.coeffs_arr, 4)),
                            'Sum of Coefficients' :str(np.around(np.sum(self.coeffs_arr),4)),
                            'R-Factor': self.stat['R_Factor'], 'R^2': self.stat['R_Square'],
-                           'chi^2': self.stat['Chi_Square'], 'red-chi^2': self.stat['Reduced Chi_Square']}
+                           'chi^2': self.stat['Chi_Square'], 'red-chi^2': self.stat['Reduced Chi_Square'],
+                           'Score': np.around(fit_score,4)}
 
-            df2 = pd.DataFrame([resultsDict])
-            self.df = pd.concat([self.df, df2], ignore_index=True)
+            self.df = pd.concat([self.df, pd.DataFrame([resultsDict])], ignore_index=True)
 
             self.dataFrametoQTable(self.df)
             QtTest.QTest.qWait(0.1)  # hepls with real time plotting
@@ -710,8 +740,8 @@ class ScatterPlot(QtWidgets.QMainWindow):
         '''
 
         self.s1.setData(self.img1.flatten(), self.img2.flatten())
-        self.w1.setLabel('bottom', 'Image ROI')
-        self.w1.setLabel('left', 'Math ROI')
+        self.w1.setLabel('bottom', 'Image_1;blue shade', 'counts')
+        self.w1.setLabel('left', 'Image_2;green shade', 'counts')
         self.w1.addItem(self.s1)
 
         self.image_view.setImage(self.img1)
@@ -759,6 +789,7 @@ class ScatterPlot(QtWidgets.QMainWindow):
                                            pos=(self.pos, self.pos), pen='r', closed=True, removable=True)
 
         self.w1.addItem(self.scatter_mask)
+        
 
     def resetMask(self):
         self.w1.removeItem(self.scatter_mask)
@@ -779,11 +810,175 @@ class ScatterPlot(QtWidgets.QMainWindow):
         for i in range(len(self.img1.flatten())):
             self._points.append(QtCore.QPointF(self.img1.flatten()[i], self.img2.flatten()[i]))
 
-        selected = [roiShape.contains(pt) for pt in self._points]
-        img_selected = np.reshape(selected, (self.img1.shape))
+        selected = [roiShape.contains(pt) for pt in self._points] # binary mask
+        img_selected = np.reshape(selected, (self.img1.shape)) #mask shaped to the image
+        self.maskedImage = img_selected * self.img1
+        xData, yData = np.compress(selected,self.img1.flatten()), np.compress(selected,self.img2.flatten())
+        
+        #slope, intercept, r, p, se = linregress(xData, yData)
+        result = linregress(xData, yData)
+        pr, pp = stats.pearsonr(xData, yData)
+        yyData = result.intercept + result.slope*xData
 
-        self.masked_img = singleStackViewer(img_selected * self.img1, gradient='bipolar')
+        fitLineEqn = f' y =  x*{result.slope :.3e} + {result.intercept :.3e}, R^2 = {result.rvalue**2 :.3f}\n'
+        FitStats1 = f' Slope Error = {result.stderr :.3e}, Intercept Error = {result.intercept_stderr :.3e}\n'
+        FitStats2 = f' Pearson’s correlation coefficient = {pr :.3f}'
+        refs = '\n\n ***References****\n scipy.stats.linregress, scipy.stats.pearsonr '
+
+        fitStats = '\n ***Fit Results***\n\n'+ ' Equation: '+fitLineEqn + FitStats1 + FitStats2 + refs
+        self.getROIParams()
+        self.fitScatter =  MaskedScatterPlotFit([xData,yData],[xData,yyData],img_selected,
+                                                    self.maskedImage,fitStats, fitLineEqn)
+        self.fitScatter.show()
+
+        '''
+        print(len(np.compress(selected,self.img1.flatten())))
+
+        print(selected[:10])
+        #create pg pot
+        self.maskedPlot = pg.plot()
+        self.maskedPlot.addLegend()
+
+        #create a scatter plot item
+        #self.scattered = pg.ScatterPlotItem(size=3.5, pen=pg.mkPen(None), brush=pg.mkBrush(5, 214, 255, 200))
+
+        #generate X and Y masked data for scattreplot and linear fit
+        #xData, yData = np.array(self.img1.flatten()*selected), np.array(self.img2.flatten()*selected)
+
+        
+        from scipy.linalg import lstsq
+        M = xData[:, np.newaxis]**[0, 1]
+        p, res, rnk, s = lstsq(M, yData)
+        yyData = p[0] + p[1]*xData
+
+        #self.maskedPlot.plot(xData,yyData,pen=pg.mkPen(pg.mkColor(220,20,60), width=3.3),name=f'Fit; fitLineEqn')
+
+        #self.maskedPlot.plot(title = f" y =  x*{slope :.3f} + {intercept :.3f}, R^2 = {r**2 :.3f} ")                     
+        #print(f" y =  x*{slope} + {intercept}, R^2 = {r**2} ")
+        #se scatter plot data
+        self.scattered.setData(xData, yData, name='Data')
+        self.scattered.setZValue(-10)
+        #add scatter plot to pg plot
+        self.maskedPlot.addItem(self.scattered)
+        #get image multiplied with the mask and display it using stackViewer custom plot
+        
+        self.masked_img = singleStackViewer(self.maskedImage, gradient='bipolar')
         self.masked_img.show()
+        
+        '''
+
+    def getROIParams(self):
+        print(np.array(self.scatter_mask.getSceneHandlePositions()))
+
+class MaskedScatterPlotFit(QtWidgets.QMainWindow):
+
+    def __init__(self, scatterData, fitData, mask, maskedImage,fitString, fitEquation):
+        super(MaskedScatterPlotFit, self).__init__()
+
+        uic.loadUi(os.path.join(ui_path, 'uis/maskedScatterPlotFit.ui'), self)
+
+        self.scatterData = scatterData
+        self.fitData = fitData
+        self.mask = mask
+        self.maskedImage = maskedImage
+        self.fitString = fitString
+        self.fitEquation = fitEquation
+       
+        #set the graphicslayoutwidget in the ui as canvas
+        self.canvas = self.scatterViewer.addPlot()
+        self.canvas.addLegend()
+        self.canvas.setLabel('bottom', 'Image_1', 'counts')
+        self.canvas.setLabel('left', 'Image_2', 'counts')
+
+        #generate a scatter plot item
+        self.scattered = pg.ScatterPlotItem(size=3.5, pen=pg.mkPen(None), brush=pg.mkBrush(5, 214, 255, 200))
+
+        #set scatter plot data
+        self.scattered.setData(scatterData[0],scatterData[1],name='Data')
+
+        #set z value negative to show scatter data behind the fit line
+        self.scattered.setZValue(-10)
+
+        #add scatter plot to the canvas
+        self.canvas.addItem(self.scattered)
+
+        #generate plotitem for fit line 
+        self.fitLinePlot = pg.PlotDataItem(pen=pg.mkPen(pg.mkColor(220,20,60), width=3.3))
+
+        #set line plot data
+        self.fitLinePlot.setData(fitData[0],fitData[1], name = 'Linear Fit')
+
+        #add line plot to the canvas
+        self.canvas.addItem(self.fitLinePlot)
+
+        #display Mask
+        self.imageView_mask.setImage(self.mask)
+        self.imageView_mask.ui.menuBtn.hide()
+        self.imageView_mask.ui.roiBtn.hide()
+        self.imageView_mask.setPredefinedGradient('plasma')
+        
+        #display masked Image
+        self.imageView_maskedImage.setImage(self.maskedImage)
+        self.imageView_maskedImage.ui.menuBtn.hide()
+        self.imageView_maskedImage.ui.roiBtn.hide()
+        self.imageView_maskedImage.setPredefinedGradient('viridis')
+
+        #display Fit stats
+        self.text_fit_results.setPlainText(fitString)
+        self.canvas.setTitle(self.fitEquation, color = 'r')
+
+        #connections
+        self.pb_copy_results.clicked.connect(self.copyFitResults)
+        self.pb_save_results.clicked.connect(self.saveFitResults)
+        self.actionSave_Plot.triggered.connect(self.pg_export_correlation)
+        self.actionSaveMask.triggered.connect(self.saveMask)
+        self.actionSaveMaskedImage.triggered.connect(self.saveImage)
+
+    def saveFitResults(self):
+        S__File = QFileDialog.getSaveFileName(self, "save txt", 'correlationPlotFit.txt', 'txt data (*txt)')
+
+        Text = self.text_fit_results.toPlainText()
+        if S__File[0]:
+            with open(S__File[0], 'w') as file:
+                file.write(Text)
+
+    def copyFitResults(self):
+        self.text_fit_results.selectAll()
+        self.text_fit_results.copy()
+        self.statusbar.showMessage(f"text copied to clipboard")
+
+    def pg_export_correlation(self):
+
+        exporter = pg.exporters.CSVExporter(self.canvas)
+        exporter.parameters()['columnMode'] = '(x,y,y,y) for all plots'
+        file_name = QFileDialog().getSaveFileName(self, "save correlation", 'scatterData.csv', 'spectrum and fit (*csv)')
+        if file_name[0]:
+            exporter.export(str(file_name[0]))
+            self.statusbar.showMessage(f"Data saved to {str(file_name[0])}")
+        else:
+            pass
+
+    def saveImage(self):
+
+        file_name = QFileDialog().getSaveFileName(self, "Save image data", 'image.tiff', 'image file(*tiff *tif )')
+        if file_name[0]:
+            tf.imsave(str(file_name[0]), self.maskedImage)
+            self.statusbar.showMessage(f"Data saved to {str(file_name[0])}")
+        else:
+            self.statusbar.showMessage('Saving cancelled')
+            pass
+
+    def saveMask(self):
+
+        file_name = QFileDialog().getSaveFileName(self, "Save image data", 'mask.tiff', 'image file(*tiff *tif )')
+        if file_name[0]:
+            tf.imsave(str(file_name[0]), self.mask)
+            self.statusbar.showMessage(f"Data saved to {str(file_name[0])}")
+        else:
+            self.statusbar.showMessage('Saving cancelled')
+            pass
+
+    
 
 class ComponentScatterPlot(QtWidgets.QMainWindow):
 

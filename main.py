@@ -8,6 +8,7 @@ import logging, sys, webbrowser, traceback, os
 from PyQt5 import QtWidgets, uic, QtCore
 from PyQt5.QtWidgets import QMessageBox, QFileDialog, QDesktopWidget, QApplication, QSizePolicy
 from PyQt5.QtCore import QObject, QTimer, QThread, pyqtSignal, pyqtSlot, QRunnable, QThreadPool
+from pyqtgraph import plot
 from StackPlot import *
 from StackCalcs import *
 from MaskView import *
@@ -682,7 +683,7 @@ class midasWindow(QtWidgets.QMainWindow):
         except:
             pass
 
-        self.ref_plot = pg.plot(title="Reference Standards")
+        self.ref_plot = plot(title="Reference Standards")
         self.ref_plot.setLabel("bottom", "Energy")
         self.ref_plot.setLabel("left", "Intensity")
         self.ref_plot.addLegend()
