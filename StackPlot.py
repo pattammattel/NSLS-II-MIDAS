@@ -173,6 +173,7 @@ class ClusterViewer(QtWidgets.QMainWindow):
 
         # Load the UI Page
         uic.loadUi(os.path.join(ui_path, 'uis/ClusterView.ui'), self)
+        self.centralwidget.setStyleSheet(open(os.path.join(ui_path,'defaultStyle.css')).read())
 
         self.decon_images = decon_images
         self.energy = energy
@@ -509,6 +510,7 @@ class RefChooser(QtWidgets.QMainWindow):
     def __init__(self, ref_names, im_stack, e_list, refs, e_shift, fit_model):
         super(RefChooser, self).__init__()
         uic.loadUi(os.path.join(ui_path, 'uis/RefChooser.ui'), self)
+        self.centralwidget.setStyleSheet(open(os.path.join(ui_path,'defaultStyle.css')).read())
         self.ref_names = ref_names
         self.refs = refs
         self.im_stack = im_stack
@@ -717,27 +719,45 @@ class RefChooser(QtWidgets.QMainWindow):
 
 class ScatterPlot(QtWidgets.QMainWindow):
 
-    def __init__(self, img1, img2):
+    def __init__(self, img1, img2, nameString):
         super(ScatterPlot, self).__init__()
 
         uic.loadUi(os.path.join(ui_path, 'uis/ScatterView.ui'), self)
+        self.centralwidget.setStyleSheet(open(os.path.join(ui_path,'defaultStyle.css')).read())
         self.clearPgPlot()
         self.w1 = self.scatterViewer.addPlot()
         self.img1 = img1
         self.img2 = img2
+        self.nameString = nameString
+        x, y = np.shape(self.img1)
+        self.s1 = pg.ScatterPlotItem(size=2, pen=pg.mkPen(None), brush=pg.mkBrush(255,255,0, 255))
 
-        self.s1 = pg.ScatterPlotItem(size=2, pen=pg.mkPen(None), brush=pg.mkBrush(255, 255, 0, 120))
-        '''
-        points = []
-        
-        for i in range(len(self.img1.flatten())):
-            x = self.img1.flatten()[i]
-            y = self.img2.flatten()[i]
-            points.append({'pos': (x,y), 'data': 'id', 'size': 3, 'pen': pg.mkPen(None),
-                           'brush': pg.mkBrush(255, 255, 0, 120)})
-                           
-        self.s1.addPoints(points)
-        '''
+        #create three polyline ROIs for masking
+        self.size = self.img1.max() / 10
+        self.pos = self.img2.flatten().mean()
+        self.scatter_mask = pg.PolyLineROI([[0, 0], [0, self.size], [self.size, self.size], [self.size, 0]],
+                                           pos=(self.pos, self.pos), pen=pg.mkPen('r', width=2), hoverPen=pg.mkPen('w', width=2), 
+                                           closed=True, removable=True)
+        self.scatter_mask2 = pg.PolyLineROI([[0, 0], [0, self.size], [self.size, self.size], [self.size, 0]],
+                                           pos=(self.pos*0.3, self.pos*1.3), pen=pg.mkPen('g', width=2), hoverPen=pg.mkPen('w', width=2), 
+                                           closed=True, removable=True)
+        self.scatter_mask3 = pg.PolyLineROI([[0, 0], [0, self.size], [self.size, self.size], [self.size, 0]],
+                                           pos=(self.pos*0.5, self.pos*2.5), pen=pg.mkPen('c', width=2),hoverPen=pg.mkPen('w', width=2), 
+                                           closed=True, removable=True)
+
+        self.fitScatter = self.fitScatter2 = self.fitScatter3 = None
+                                           
+        self.rois = {
+                    'ROI 1':(self.scatter_mask,self.rb_roi1.isChecked(),self.fitScatter),
+                    'ROI 2':(self.scatter_mask2,self.rb_roi2.isChecked(),self.fitScatter2),
+                    'ROI 3':(self.scatter_mask3,self.rb_roi3.isChecked(),self.fitScatter3)
+                    }
+
+        self.windowNames = {
+                    'ROI 1':self.fitScatter,
+                    'ROI 2':self.fitScatter2,
+                    'ROI 3':self.fitScatter3
+                    }
 
         self.s1.setData(self.img1.flatten(), self.img2.flatten())
         self.w1.setLabel('bottom', 'Image_1;blue shade', 'counts')
@@ -757,9 +777,14 @@ class ScatterPlot(QtWidgets.QMainWindow):
         # connections
         self.actionSave_Plot.triggered.connect(self.pg_export_correlation)
         self.actionSave_Images.triggered.connect(self.tiff_export_images)
-        self.pb_define_mask.clicked.connect(self.createMask)
-        self.pb_apply_mask.clicked.connect(self.getMaskRegion)
-        self.pb_reset_mask.clicked.connect(self.resetMask)
+        #self.pb_define_mask.clicked.connect(lambda:self.createMask(self.scatter_mask))
+        self.pb_define_mask.clicked.connect(self.addMultipleROIs)
+        #self.pb_apply_mask.clicked.connect(lambda:self.getMaskRegion(self.scatter_mask))
+        self.pb_apply_mask.clicked.connect(self.applyMultipleROIs)
+        self.pb_clear_mask.clicked.connect(self.clearMultipleROIs)
+        self.pb_compositeScatter.clicked.connect(self._createCompositeScatter)
+        [rbs.clicked.connect(self.updateROIDict) for rbs in
+         [self.rb_roi1, self.rb_roi2, self.rb_roi3]]
 
     def pg_export_correlation(self):
 
@@ -780,20 +805,14 @@ class ScatterPlot(QtWidgets.QMainWindow):
         else:
             pass
 
-    def createMask(self):
-
-        self.size = self.img1.max() / 10
-        self.pos = int(self.img1.mean())
-
-        self.scatter_mask = pg.PolyLineROI([[0, 0], [0, self.size], [self.size, self.size], [self.size, 0]],
-                                           pos=(self.pos, self.pos), pen='r', closed=True, removable=True)
-
-        self.w1.addItem(self.scatter_mask)
+    def createMask(self, ROIName):
         
+        try: self.w1.removeItem(ROIName)
+        except: pass
+        self.w1.addItem(ROIName)
 
-    def resetMask(self):
-        self.w1.removeItem(self.scatter_mask)
-        self.createMask()
+    def clearMask(self, ROIName):
+        self.w1.removeItem(ROIName)
 
     def clearPgPlot(self):
         try:
@@ -801,71 +820,135 @@ class ScatterPlot(QtWidgets.QMainWindow):
         except:
             pass
 
-    def getMaskRegion(self):
+    def getMaskRegion(self, ROIName, generateSeperateWindows = True):
+
+        """ filter scatterplot points using polylineROI region """
 
         # Ref : https://stackoverflow.com/questions/57719303/how-to-map-mouse-position-on-a-scatterplot
 
-        roiShape = self.scatter_mask.mapToItem(self.s1, self.scatter_mask.shape())
-        self._points = list()
-        for i in range(len(self.img1.flatten())):
-            self._points.append(QtCore.QPointF(self.img1.flatten()[i], self.img2.flatten()[i]))
-
-        selected = [roiShape.contains(pt) for pt in self._points] # binary mask
-        img_selected = np.reshape(selected, (self.img1.shape)) #mask shaped to the image
-        self.maskedImage = img_selected * self.img1
-        xData, yData = np.compress(selected,self.img1.flatten()), np.compress(selected,self.img2.flatten())
+        #get the roi region:QPaintPathObject
+        roiShape = self.rois[ROIName][0].mapToItem(self.s1, self.rois[ROIName][0].shape())
         
-        #slope, intercept, r, p, se = linregress(xData, yData)
-        result = linregress(xData, yData)
-        pr, pp = stats.pearsonr(xData, yData)
-        yyData = result.intercept + result.slope*xData
+        #get data in the scatter plot
+        scatterData = np.array(self.s1.getData())
+        
+        #generate a binary mask for points inside or outside the roishape
+        selected = [roiShape.contains(QtCore.QPointF(pt[0],pt[1])) for pt in scatterData.T]
 
-        fitLineEqn = f' y =  x*{result.slope :.3e} + {result.intercept :.3e}, R^2 = {result.rvalue**2 :.3f}\n'
+        # reshape the mask to image dimensions
+        img_selected = np.reshape(selected, (self.img1.shape))
+        
+        #get masked image1
+        self.maskedImage = img_selected * self.img1
+
+        #get rid of the (0,0) values in the masked array
+        self.xData, self.yData = np.compress(selected,scatterData[0]), np.compress(selected,scatterData[1])
+        
+        #linear regeression of the filtered X,Y data
+        result = linregress(self.xData, self.yData)
+
+        #Pearson's correlation of the filtered X,Y data
+        pr, pp = stats.pearsonr(self.xData, self.yData)
+
+        #apply the solved equation to xData to generate the fit line
+        self.yyData = result.intercept + result.slope*self.xData
+
+        #Prepare strings for fit results and stats
+        self.fitLineEqn = f' y =  x*{result.slope :.3e} + {result.intercept :.3e}, R^2 = {result.rvalue**2 :.3f}, r = {pr :.3f}\n'
         FitStats1 = f' Slope Error = {result.stderr :.3e}, Intercept Error = {result.intercept_stderr :.3e}\n'
         FitStats2 = f' Pearson’s correlation coefficient = {pr :.3f}'
-        refs = '\n\n ***References****\n scipy.stats.linregress, scipy.stats.pearsonr '
+        refs = '\n\n ***References****\n\n scipy.stats.linregress, scipy.stats.pearsonr '
+        fitStats = f'\n ***{ROIName} Fit Results***\n\n'+ ' Equation: '+self.fitLineEqn + FitStats1 + FitStats2 + refs
+    
+        #generate new window to plot the results
 
-        fitStats = '\n ***Fit Results***\n\n'+ ' Equation: '+fitLineEqn + FitStats1 + FitStats2 + refs
-        self.getROIParams()
-        self.fitScatter =  MaskedScatterPlotFit([xData,yData],[xData,yyData],img_selected,
-                                                    self.maskedImage,fitStats, fitLineEqn)
-        self.fitScatter.show()
+        if generateSeperateWindows:
+            self.windowNames[ROIName] =  MaskedScatterPlotFit([self.xData,self.yData],[self.xData,self.yyData],img_selected,
+                                                        self.maskedImage,fitStats, self.fitLineEqn)
+            self.windowNames[ROIName].show()
 
-        '''
-        print(len(np.compress(selected,self.img1.flatten())))
 
-        print(selected[:10])
-        #create pg pot
-        self.maskedPlot = pg.plot()
-        self.maskedPlot.addLegend()
-
-        #create a scatter plot item
-        #self.scattered = pg.ScatterPlotItem(size=3.5, pen=pg.mkPen(None), brush=pg.mkBrush(5, 214, 255, 200))
-
-        #generate X and Y masked data for scattreplot and linear fit
-        #xData, yData = np.array(self.img1.flatten()*selected), np.array(self.img2.flatten()*selected)
-
-        
+        '''  
         from scipy.linalg import lstsq
-        M = xData[:, np.newaxis]**[0, 1]
+        M = xData[:, np.newaxis]**[0, 1] #use >1 for polynomial fits
         p, res, rnk, s = lstsq(M, yData)
         yyData = p[0] + p[1]*xData
-
-        #self.maskedPlot.plot(xData,yyData,pen=pg.mkPen(pg.mkColor(220,20,60), width=3.3),name=f'Fit; fitLineEqn')
-
-        #self.maskedPlot.plot(title = f" y =  x*{slope :.3f} + {intercept :.3f}, R^2 = {r**2 :.3f} ")                     
-        #print(f" y =  x*{slope} + {intercept}, R^2 = {r**2} ")
-        #se scatter plot data
-        self.scattered.setData(xData, yData, name='Data')
-        self.scattered.setZValue(-10)
-        #add scatter plot to pg plot
-        self.maskedPlot.addItem(self.scattered)
-        #get image multiplied with the mask and display it using stackViewer custom plot
-        
-        self.masked_img = singleStackViewer(self.maskedImage, gradient='bipolar')
-        self.masked_img.show()
-        
         '''
+    
+    def updateROIDict(self):
+        self.rois = {
+                    'ROI 1':(self.scatter_mask,self.rb_roi1.isChecked()),
+                    'ROI 2':(self.scatter_mask2,self.rb_roi2.isChecked()),
+                    'ROI 3':(self.scatter_mask3,self.rb_roi3.isChecked())
+                    }
+
+    def applyMultipleROIs(self):
+        with pg.BusyCursor():
+            self.updateROIDict()
+            for key in self.rois.keys():
+                if self.rois[key][1]:
+                    self.getMaskRegion(key)
+                else:
+                    pass
+
+    def addMultipleROIs(self):
+        self.updateROIDict()
+        for key in self.rois.keys():
+            if self.rois[key][1]:
+                self.createMask(self.rois[key][0])
+            else:
+                self.clearMask(self.rois[key][0])
+
+    def clearMultipleROIs(self):
+        self.updateROIDict()
+        for key in self.rois.keys():
+            if not self.rois[key][1]:
+                self.clearMask(self.rois[key][0])
+            else:
+                pass
+
+    def _createCompositeScatter(self):
+        
+        points = []
+        fitLine = []
+        roiFitEqn = {}
+
+        self.updateROIDict()
+        for n, key in enumerate(self.rois.keys()):
+            if self.rois[key][1]:
+                self.getMaskRegion(key, generateSeperateWindows = False)
+                points.append(np.column_stack([self.xData,self.yData]))
+                fitLine.append(np.column_stack([self.xData,self.yyData]))
+                roiFitEqn[key] = self.fitLineEqn
+            else:
+                pass
+        
+        print(f' fitline shape: {np.shape(fitLine)}')
+        print(f' points shape: {np.shape(points)}')
+        self.compositeScatterWindow2 = CompositeScatterPlot2(np.array(points),np.array(fitLine),roiFitEqn)
+        self.compositeScatterWindow2.show()
+
+    def createCompositeScatter(self):
+        self.scatterColors = ['w', 'c', 'y', 'k', 'm']
+        points = []
+        fitLine = []
+
+        self.updateROIDict()
+        for n, key in enumerate(self.rois.keys()):
+            if self.rois[key][1]:
+                self.getMaskRegion(key, generateSeperateWindows = False)
+        
+                for x,y,yy in zip(self.xData, self.yData,self.yyData):
+                    
+                    points.append({'pos': (x,y), 'data': 'id', 'size': 3, 'pen': pg.mkPen(None),
+                                    'brush': self.scatterColors[n]})
+                fitLine.extend(np.column_stack((self.xData,self.yyData)))
+            else:
+                pass
+
+        logger.info(f' fitline shape: {np.shape(fitLine)}')
+        self.compositeScatterWindow = CompositeScatterPlot(points,np.array(fitLine))
+        self.compositeScatterWindow.show()                     
 
     def getROIParams(self):
         print(np.array(self.scatter_mask.getSceneHandlePositions()))
@@ -876,7 +959,7 @@ class MaskedScatterPlotFit(QtWidgets.QMainWindow):
         super(MaskedScatterPlotFit, self).__init__()
 
         uic.loadUi(os.path.join(ui_path, 'uis/maskedScatterPlotFit.ui'), self)
-
+        self.centralwidget.setStyleSheet(open(os.path.join(ui_path,'defaultStyle.css')).read())
         self.scatterData = scatterData
         self.fitData = fitData
         self.mask = mask
@@ -978,7 +1061,45 @@ class MaskedScatterPlotFit(QtWidgets.QMainWindow):
             self.statusbar.showMessage('Saving cancelled')
             pass
 
-    
+class CompositeScatterPlot(QtWidgets.QMainWindow):
+
+    def __init__(self, scatterPoints,fitLine):
+        super(CompositeScatterPlot, self).__init__()
+
+        uic.loadUi(os.path.join(ui_path, 'uis/multipleScatterFit.ui'), self)
+        self.centralwidget.setStyleSheet(open(os.path.join(ui_path,'defaultStyle.css')).read())
+
+        self.scatterPoints = scatterPoints
+        self.fitLine = fitLine
+
+        #set the graphicslayoutwidget in the ui as canvas
+        self.canvas = self.scatterViewer.addPlot()
+        self.canvas.addLegend()
+        self.canvas.setLabel('bottom', 'Image_1', 'counts')
+        self.canvas.setLabel('left', 'Image_2', 'counts')
+
+        #generate a scatter plot item
+        self.scattered = pg.ScatterPlotItem(size=3.5, pen=pg.mkPen(None), brush=pg.mkBrush(5, 214, 255, 200))
+
+        #set scatter plot data
+        self.scattered.setPoints(self.scatterPoints, name  = 'Data')
+
+        #set z value negative to show scatter data behind the fit line
+        self.scattered.setZValue(-10)
+
+        #add scatter plot to the canvas
+        self.canvas.addItem(self.scattered)
+
+        #generate plotitem for fit line 
+        #self.fitLinePlot = pg.PlotDataItem(pen=pg.mkPen(pg.mkColor(220,20,60), width=3.3))
+        self.fitLinePlot = pg.PlotDataItem(pen=None,symbol='o', symbolSize=6,
+                                            symbolBrush='r', symbolPen = 'r')
+
+        #set line plot data
+        self.fitLinePlot.setData(self.fitLine, name = 'Linear Fit')
+
+        #add line plot to the canvas
+        self.canvas.addItem(self.fitLinePlot)
 
 class ComponentScatterPlot(QtWidgets.QMainWindow):
 
@@ -986,7 +1107,7 @@ class ComponentScatterPlot(QtWidgets.QMainWindow):
         super(ComponentScatterPlot, self).__init__()
 
         uic.loadUi(os.path.join(ui_path, 'uis/ComponentScatterPlot.ui'), self)
-
+        self.centralwidget.setStyleSheet(open(os.path.join(ui_path,'defaultStyle.css')).read())
         self.w1 = self.scatterViewer.addPlot()
         self.decomp_stack = decomp_stack
         self.specs = specs
@@ -1032,25 +1153,6 @@ class ComponentScatterPlot(QtWidgets.QMainWindow):
                 points.append({'pos': (i,j), 'data' : 'id', 'size': 5, 'pen': pg.mkPen(None),
                            'brush': pg.mkBrush(255, 255, 0, 160)})
 
-        '''
-        for i,j in zip(self.specs[:, comp_tuple[0]],self.specs[:, comp_tuple[-1]]):
-
-                points.append({'pos': (i,j), 'data' : 'id', 'size': 10, 'pen': pg.mkPen(None),
-                           'brush': pg.mkBrush(255, 255, 0, 255)})
-        
-
-        for n,i in enumerate(self.decomp_stack[comp_tuple[0]].flatten()):
-
-                points.append({'pos': (n,i), 'size': 10, 'pen': pg.mkPen(None),
-                           'brush': pg.mkBrush(255, 255, 0, 120)})
-
-        for n,j in enumerate(self.decomp_stack[comp_tuple[-1]].flatten()):
-
-                points.append({'pos': (n,j), 'size': 10, 'pen': pg.mkPen(None),
-                           'brush': pg.mkBrush(0, 255, 255, 120)})
-                           
-        '''
-
         self.s1.addPoints(points)
         self.w1.addItem(self.s1)
         #self.s1.setData(self.specs[:, comp_tuple[0]], self.specs[:, comp_tuple[-1]])
@@ -1080,13 +1182,9 @@ class ComponentScatterPlot(QtWidgets.QMainWindow):
 
             self.w1.addItem(self.scatter_mask)
 
-
-
-
-    def resetMask(self):
+    def clearMask(self):
         try:
             self.w1.removeItem(self.scatter_mask)
-            self.createMask()
         except AttributeError:
             pass
 
@@ -1103,6 +1201,7 @@ class ComponentScatterPlot(QtWidgets.QMainWindow):
 
         roiShape = self.scatter_mask.mapToItem(self.s1, self.scatter_mask.shape())
         self._points = list()
+        logger.info("Building Scatter Plot Window; Please wait..")
         for i in range(len(self.img1.flatten())):
             self._points.append(QtCore.QPointF(self.img1.flatten()[i], self.img2.flatten()[i]))
 
@@ -1151,3 +1250,57 @@ class LoadingScreen(QtWidgets.QSplashScreen):
     def stopAnimation(self):
         self.movie.stop()
         self.hide()
+
+class CompositeScatterPlot2(QtWidgets.QMainWindow):
+
+    def __init__(self, scatterPoints,fitLine, fitEquations):
+        super(CompositeScatterPlot2, self).__init__()
+
+        uic.loadUi(os.path.join(ui_path, 'uis/multipleScatterFit.ui'), self)
+        self.centralwidget.setStyleSheet(open(os.path.join(ui_path,'defaultStyle.css')).read())
+
+        self.scatterPoints = scatterPoints
+        self.fitLine = fitLine
+        self.scatterColors = ['r', 'g', 'c', 'w', 'k']
+        self.fitColors = ['b', 'r', 'w', 'k', 'b']
+        self.roiNames = list(fitEquations.keys())
+        self.fitEqns = list(fitEquations.values())
+        
+        #self.scatterViewer.setBackground('w')
+        #set the graphicslayoutwidget in the ui as canvas
+        self.canvas = self.scatterViewer.addPlot()
+        self.canvas.addLegend()
+        self.canvas.setLabel('bottom', 'Image_1', 'counts')
+        self.canvas.setLabel('left', 'Image_2', 'counts')
+
+        with pg.BusyCursor():
+        
+            for arr, fitline, clr, fitClr, rname, feqn in zip(self.scatterPoints,self.fitLine,
+                                                self.scatterColors,self.fitColors,self.roiNames,self.fitEqns):
+
+                sctrPoints = []
+                for pt in arr:
+                    sctrPoints.append({'pos': (pt[0],pt[1]), 'data': 'id', 'size': 3, 
+                                        'pen': pg.mkPen(None),'brush': clr})
+
+                #generate a scatter plot item
+                self.scattered = pg.ScatterPlotItem(size=3.5, pen=clr, brush=pg.mkBrush(5, 214, 255, 200))
+                #set scatter plot data
+                self.scattered.setPoints(sctrPoints, name  = rname)
+
+                #set z value negative to show scatter data behind the fit line
+                self.scattered.setZValue(-10)
+
+                #add scatter plot to the canvas
+                self.canvas.addItem(self.scattered)
+
+                
+                #generate plotitem for fit line 
+                self.fitLinePlot = pg.PlotDataItem(pen=pg.mkPen(fitClr, width=4.5))
+
+                #set line plot data
+                self.fitLinePlot.setData(fitline, name = feqn)
+
+                #add line plot to the canvas
+                self.canvas.addItem(self.fitLinePlot)
+            
