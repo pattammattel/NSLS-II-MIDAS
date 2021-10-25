@@ -31,14 +31,7 @@
          </property>
         </widget>
        </item>
-       <item row="0" column="1">
-        <widget class="QPushButton" name="pb_apply_mask">
-         <property name="text">
-          <string>Apply</string>
-         </property>
-        </widget>
-       </item>
-       <item row="1" column="0" colspan="2">
+       <item row="2" column="0" colspan="2">
         <layout class="QGridLayout" name="gridLayout_3">
          <item row="0" column="0">
           <widget class="QRadioButton" name="rb_roi1">
@@ -75,17 +68,24 @@
          </item>
         </layout>
        </item>
-       <item row="1" column="2">
+       <item row="2" column="2">
         <widget class="QPushButton" name="pb_compositeScatter">
          <property name="text">
           <string>  Create Composite Scatter Plot   </string>
          </property>
         </widget>
        </item>
-       <item row="0" column="2">
+       <item row="0" column="1">
         <widget class="QPushButton" name="pb_clear_mask">
          <property name="text">
           <string>Clear Unchecked</string>
+         </property>
+        </widget>
+       </item>
+       <item row="0" column="2">
+        <widget class="QPushButton" name="pb_apply_mask">
+         <property name="text">
+          <string>Apply Mask(s)</string>
          </property>
         </widget>
        </item>
@@ -107,7 +107,7 @@
        <number>10</number>
       </property>
       <item row="0" column="0">
-       <widget class="QLabel" name="label">
+       <widget class="QLabel" name="label_img1">
         <property name="text">
          <string>Image 1 (Blue Shade)</string>
         </property>
@@ -136,7 +136,7 @@
        <number>10</number>
       </property>
       <item row="0" column="0">
-       <widget class="QLabel" name="label_2">
+       <widget class="QLabel" name="label_img2">
         <property name="text">
          <string>Image 2 (Green Shade)</string>
         </property>

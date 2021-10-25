@@ -719,7 +719,7 @@ class RefChooser(QtWidgets.QMainWindow):
 
 class ScatterPlot(QtWidgets.QMainWindow):
 
-    def __init__(self, img1, img2, nameString):
+    def __init__(self, img1, img2, nameTuple):
         super(ScatterPlot, self).__init__()
 
         uic.loadUi(os.path.join(ui_path, 'uis/ScatterView.ui'), self)
@@ -728,21 +728,22 @@ class ScatterPlot(QtWidgets.QMainWindow):
         self.w1 = self.scatterViewer.addPlot()
         self.img1 = img1
         self.img2 = img2
-        self.nameString = nameString
+        self.nameTuple = nameTuple
         x, y = np.shape(self.img1)
         self.s1 = pg.ScatterPlotItem(size=2, pen=pg.mkPen(None), brush=pg.mkBrush(255,255,0, 255))
-
+        print(self.s1)
         #create three polyline ROIs for masking
-        self.size = self.img1.max() / 10
-        self.pos = self.img2.flatten().mean()
-        self.scatter_mask = pg.PolyLineROI([[0, 0], [0, self.size], [self.size, self.size], [self.size, 0]],
-                                           pos=(self.pos, self.pos), pen=pg.mkPen('r', width=2), hoverPen=pg.mkPen('w', width=2), 
+        self.Xsize = self.img1.max() / 10
+        self.Ysize = self.img2.max() / 10
+        self.pos = self.img1.flatten().mean()
+        self.scatter_mask = pg.PolyLineROI([[0, 0], [0, self.Ysize], [self.Xsize, self.Ysize], [self.Xsize, 0]],
+                                           pos=None, pen=pg.mkPen('r', width=2), hoverPen=pg.mkPen('w', width=2), 
                                            closed=True, removable=True)
-        self.scatter_mask2 = pg.PolyLineROI([[0, 0], [0, self.size], [self.size, self.size], [self.size, 0]],
-                                           pos=(self.pos*0.3, self.pos*1.3), pen=pg.mkPen('g', width=2), hoverPen=pg.mkPen('w', width=2), 
+        self.scatter_mask2 = pg.PolyLineROI([[self.Xsize*1.2, 0], [self.Xsize*1.2, self.Ysize], [self.Xsize*2, self.Ysize], [self.Xsize*2, 0]],
+                                           pos=None, pen=pg.mkPen('g', width=2), hoverPen=pg.mkPen('w', width=2), 
                                            closed=True, removable=True)
-        self.scatter_mask3 = pg.PolyLineROI([[0, 0], [0, self.size], [self.size, self.size], [self.size, 0]],
-                                           pos=(self.pos*0.5, self.pos*2.5), pen=pg.mkPen('c', width=2),hoverPen=pg.mkPen('w', width=2), 
+        self.scatter_mask3 = pg.PolyLineROI([[self.Xsize*2.5, 0], [self.Xsize*2.5, self.Ysize], [self.Xsize*4, self.Ysize], [self.Xsize*4, 0]],
+                                           pos=None, pen=pg.mkPen('c', width=2),hoverPen=pg.mkPen('w', width=2), 
                                            closed=True, removable=True)
 
         self.fitScatter = self.fitScatter2 = self.fitScatter3 = None
@@ -760,8 +761,10 @@ class ScatterPlot(QtWidgets.QMainWindow):
                     }
 
         self.s1.setData(self.img1.flatten(), self.img2.flatten())
-        self.w1.setLabel('bottom', 'Image_1;blue shade', 'counts')
-        self.w1.setLabel('left', 'Image_2;green shade', 'counts')
+        self.w1.setLabel('bottom', self.nameTuple[0], 'counts')
+        self.label_img1.setText(self.nameTuple[0])
+        self.w1.setLabel('left', self.nameTuple[1], 'counts')
+        self.label_img2.setText(self.nameTuple[1])
         self.w1.addItem(self.s1)
 
         self.image_view.setImage(self.img1)
@@ -774,6 +777,8 @@ class ScatterPlot(QtWidgets.QMainWindow):
         self.image_view2.ui.roiBtn.hide()
         self.image_view2.setPredefinedGradient('thermal')
 
+        
+
         # connections
         self.actionSave_Plot.triggered.connect(self.pg_export_correlation)
         self.actionSave_Images.triggered.connect(self.tiff_export_images)
@@ -782,7 +787,7 @@ class ScatterPlot(QtWidgets.QMainWindow):
         #self.pb_apply_mask.clicked.connect(lambda:self.getMaskRegion(self.scatter_mask))
         self.pb_apply_mask.clicked.connect(self.applyMultipleROIs)
         self.pb_clear_mask.clicked.connect(self.clearMultipleROIs)
-        self.pb_compositeScatter.clicked.connect(self._createCompositeScatter)
+        self.pb_compositeScatter.clicked.connect(self.createCompositeScatter)
         [rbs.clicked.connect(self.updateROIDict) for rbs in
          [self.rb_roi1, self.rb_roi2, self.rb_roi3]]
 
@@ -864,7 +869,7 @@ class ScatterPlot(QtWidgets.QMainWindow):
 
         if generateSeperateWindows:
             self.windowNames[ROIName] =  MaskedScatterPlotFit([self.xData,self.yData],[self.xData,self.yyData],img_selected,
-                                                        self.maskedImage,fitStats, self.fitLineEqn)
+                                                        self.maskedImage,fitStats, self.fitLineEqn, self.nameTuple)
             self.windowNames[ROIName].show()
 
 
@@ -907,7 +912,7 @@ class ScatterPlot(QtWidgets.QMainWindow):
             else:
                 pass
 
-    def _createCompositeScatter(self):
+    def createCompositeScatter(self):
         
         points = []
         fitLine = []
@@ -923,12 +928,12 @@ class ScatterPlot(QtWidgets.QMainWindow):
             else:
                 pass
         
-        print(f' fitline shape: {np.shape(fitLine)}')
-        print(f' points shape: {np.shape(points)}')
-        self.compositeScatterWindow2 = CompositeScatterPlot2(np.array(points),np.array(fitLine),roiFitEqn)
-        self.compositeScatterWindow2.show()
+        logger.info(f' fitline shape: {np.shape(fitLine)}')
+        logger.info(f' points shape: {np.shape(points)}')
+        self.compositeScatterWindow = CompositeScatterPlot(np.array(points),np.array(fitLine),roiFitEqn, self.nameTuple)
+        self.compositeScatterWindow.show()
 
-    def createCompositeScatter(self):
+    def _createCompositeScatter(self):
         self.scatterColors = ['w', 'c', 'y', 'k', 'm']
         points = []
         fitLine = []
@@ -947,15 +952,15 @@ class ScatterPlot(QtWidgets.QMainWindow):
                 pass
 
         logger.info(f' fitline shape: {np.shape(fitLine)}')
-        self.compositeScatterWindow = CompositeScatterPlot(points,np.array(fitLine))
-        self.compositeScatterWindow.show()                     
+        self.compositeScatterWindow2 = CompositeScatterPlot2(points,np.array(fitLine))
+        self.compositeScatterWindow2.show()                     
 
     def getROIParams(self):
         print(np.array(self.scatter_mask.getSceneHandlePositions()))
 
 class MaskedScatterPlotFit(QtWidgets.QMainWindow):
 
-    def __init__(self, scatterData, fitData, mask, maskedImage,fitString, fitEquation):
+    def __init__(self, scatterData, fitData, mask, maskedImage,fitString, fitEquation, nameTuple):
         super(MaskedScatterPlotFit, self).__init__()
 
         uic.loadUi(os.path.join(ui_path, 'uis/maskedScatterPlotFit.ui'), self)
@@ -966,13 +971,15 @@ class MaskedScatterPlotFit(QtWidgets.QMainWindow):
         self.maskedImage = maskedImage
         self.fitString = fitString
         self.fitEquation = fitEquation
+        self.nameTuple = nameTuple
        
         #set the graphicslayoutwidget in the ui as canvas
         self.canvas = self.scatterViewer.addPlot()
         self.canvas.addLegend()
-        self.canvas.setLabel('bottom', 'Image_1', 'counts')
-        self.canvas.setLabel('left', 'Image_2', 'counts')
-
+        self.canvas.setLabel('bottom', self.nameTuple[0], 'counts')
+        self.canvas.setLabel('left', self.nameTuple[1], 'counts')
+        self.gb_maskedImage1.setTitle(f" Masked {self.nameTuple[0]}")
+        
         #generate a scatter plot item
         self.scattered = pg.ScatterPlotItem(size=3.5, pen=pg.mkPen(None), brush=pg.mkBrush(5, 214, 255, 200))
 
@@ -1061,50 +1068,10 @@ class MaskedScatterPlotFit(QtWidgets.QMainWindow):
             self.statusbar.showMessage('Saving cancelled')
             pass
 
-class CompositeScatterPlot(QtWidgets.QMainWindow):
-
-    def __init__(self, scatterPoints,fitLine):
-        super(CompositeScatterPlot, self).__init__()
-
-        uic.loadUi(os.path.join(ui_path, 'uis/multipleScatterFit.ui'), self)
-        self.centralwidget.setStyleSheet(open(os.path.join(ui_path,'defaultStyle.css')).read())
-
-        self.scatterPoints = scatterPoints
-        self.fitLine = fitLine
-
-        #set the graphicslayoutwidget in the ui as canvas
-        self.canvas = self.scatterViewer.addPlot()
-        self.canvas.addLegend()
-        self.canvas.setLabel('bottom', 'Image_1', 'counts')
-        self.canvas.setLabel('left', 'Image_2', 'counts')
-
-        #generate a scatter plot item
-        self.scattered = pg.ScatterPlotItem(size=3.5, pen=pg.mkPen(None), brush=pg.mkBrush(5, 214, 255, 200))
-
-        #set scatter plot data
-        self.scattered.setPoints(self.scatterPoints, name  = 'Data')
-
-        #set z value negative to show scatter data behind the fit line
-        self.scattered.setZValue(-10)
-
-        #add scatter plot to the canvas
-        self.canvas.addItem(self.scattered)
-
-        #generate plotitem for fit line 
-        #self.fitLinePlot = pg.PlotDataItem(pen=pg.mkPen(pg.mkColor(220,20,60), width=3.3))
-        self.fitLinePlot = pg.PlotDataItem(pen=None,symbol='o', symbolSize=6,
-                                            symbolBrush='r', symbolPen = 'r')
-
-        #set line plot data
-        self.fitLinePlot.setData(self.fitLine, name = 'Linear Fit')
-
-        #add line plot to the canvas
-        self.canvas.addItem(self.fitLinePlot)
-
-class ComponentScatterPlot(QtWidgets.QMainWindow):
+class ComponentScatterPlot2(QtWidgets.QMainWindow):
 
     def __init__(self, decomp_stack, specs):
-        super(ComponentScatterPlot, self).__init__()
+        super(ComponentScatterPlot2, self).__init__()
 
         uic.loadUi(os.path.join(ui_path, 'uis/ComponentScatterPlot.ui'), self)
         self.centralwidget.setStyleSheet(open(os.path.join(ui_path,'defaultStyle.css')).read())
@@ -1251,10 +1218,10 @@ class LoadingScreen(QtWidgets.QSplashScreen):
         self.movie.stop()
         self.hide()
 
-class CompositeScatterPlot2(QtWidgets.QMainWindow):
+class CompositeScatterPlot(QtWidgets.QMainWindow):
 
-    def __init__(self, scatterPoints,fitLine, fitEquations):
-        super(CompositeScatterPlot2, self).__init__()
+    def __init__(self, scatterPoints,fitLine, fitEquations, nameTuple):
+        super(CompositeScatterPlot, self).__init__()
 
         uic.loadUi(os.path.join(ui_path, 'uis/multipleScatterFit.ui'), self)
         self.centralwidget.setStyleSheet(open(os.path.join(ui_path,'defaultStyle.css')).read())
@@ -1265,13 +1232,18 @@ class CompositeScatterPlot2(QtWidgets.QMainWindow):
         self.fitColors = ['b', 'r', 'w', 'k', 'b']
         self.roiNames = list(fitEquations.keys())
         self.fitEqns = list(fitEquations.values())
-        
+        self.nameTuple = nameTuple
+
         #self.scatterViewer.setBackground('w')
         #set the graphicslayoutwidget in the ui as canvas
         self.canvas = self.scatterViewer.addPlot()
         self.canvas.addLegend()
-        self.canvas.setLabel('bottom', 'Image_1', 'counts')
-        self.canvas.setLabel('left', 'Image_2', 'counts')
+        self.canvas.setLabel('bottom', self.nameTuple[0], 'counts')
+        self.canvas.setLabel('left', self.nameTuple[1], 'counts')
+
+        #connections
+        self.actionExport.triggered.connect(self.exportData)
+        self.actionSave_as_PNG.triggered.connect(self.exportAsPNG)
 
         with pg.BusyCursor():
         
@@ -1303,4 +1275,25 @@ class CompositeScatterPlot2(QtWidgets.QMainWindow):
 
                 #add line plot to the canvas
                 self.canvas.addItem(self.fitLinePlot)
-            
+
+    def exportData(self):
+
+        exporter = pg.exporters.CSVExporter(self.canvas)
+        #exporter.parameters()['columnMode'] = '(x,y,y,y) for all plots'
+        file_name = QFileDialog().getSaveFileName(self, "Save CSV Data", 'scatter.csv', 'image file (*csv)')
+        if file_name[0]:
+            exporter.export(str(file_name[0]))
+            self.statusbar.showMessage(f"Data saved to {str(file_name[0])}")
+        else:
+            pass
+
+    def exportAsPNG(self):
+        file_name = QtWidgets.QFileDialog().getSaveFileName(self, "Save Image", 'image.png',
+                                                            'PNG(*.png);; TIFF(*.tiff);; JPG(*.jpg)')
+        exporter = pg.exporters.ImageExporter(self.canvas)
+
+        if file_name[0]:
+            exporter.export(str(file_name[0]))
+            self.statusbar.showMessage(f"Image saved to {str(file_name[0])}")
+        else:
+            pass

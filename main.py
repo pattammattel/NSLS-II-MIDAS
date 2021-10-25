@@ -8,6 +8,7 @@ import logging, sys, webbrowser, traceback, os
 from PyQt5 import QtWidgets, uic, QtCore
 from PyQt5.QtWidgets import QMessageBox, QFileDialog, QDesktopWidget, QApplication, QSizePolicy
 from PyQt5.QtCore import QObject, QTimer, QThread, pyqtSignal, pyqtSlot, QRunnable, QThreadPool
+from numpy.lib.shape_base import column_stack
 from pyqtgraph import plot
 from StackPlot import *
 from StackCalcs import *
@@ -172,7 +173,6 @@ class midasWindow(QtWidgets.QMainWindow):
 
     def open_github_link(self):
         webbrowser.open('https://github.com/pattammattel/NSLS-II-MIDAS/wiki')
-
 
     def threadMaker(self, funct):
         # Pass the function to execute
@@ -343,24 +343,6 @@ class midasWindow(QtWidgets.QMainWindow):
             self.efilePath = False
             self.efileLoader()
 
-    def displayStackInfo(self):
-
-        try:
-
-            if isinstance(self.file_name, list):
-                info = f'Folder; {os.path.dirname(self.file_name[0])} \n'
-                for n, name in enumerate(self.file_name):
-                    info += f'{n}: {os.path.basename(name)} \n'
-
-                # info = f'Stack order; {[name for name in enumerate(self.file_name)]}'
-            else:
-                info = f'Stack; {self.file_name}'
-
-            self.infoWindow = StackInfo(str(info))
-            self.infoWindow.show()
-
-        except AttributeError:
-            self.statusbar_main.showMessage('Warning: No Image Data Loaded')
 
     def update_stack_info(self):
         z, y, x = np.shape(self.displayedStack)
@@ -602,6 +584,8 @@ class midasWindow(QtWidgets.QMainWindow):
                                                          self.stack_center + self.stack_width - 10), pen='r',
                                                  brush=QtGui.QColor(0, 255, 200, 50)
                                                  )
+        self.spec_lo_m_idx = self.spec_hi_m_idx = 0
+        
         self.setImageROI()
         self.update_spectrum()
         self.update_image_roi()
@@ -827,17 +811,18 @@ class midasWindow(QtWidgets.QMainWindow):
         self.le_spec_roi.setText(str(int(self.spec_lo)) + ':' + str(int(self.spec_hi)))
         self.le_spec_roi_size.setText(str(int(self.spec_hi - self.spec_lo)))
         self.update_spec_roi_values()
+        self.stackIndexToNames()
 
         try:
             if int(self.spec_lo_idx) == int(self.spec_hi_idx):
                 self.disp_img = self.displayedStack[int(self.spec_hi_idx), :, :]
-                self.statusbar_main.showMessage(f'Image Display is stack # {self.spec_hi_idx}')
+                
 
             else:
                 self.disp_img = self.displayedStack[int(self.spec_lo_idx):int(self.spec_hi_idx), :, :].sum(0)
-                self.statusbar_main.showMessage(f'Image display is stack # range: '
-                                                f'{self.spec_lo_idx}:{self.spec_hi_idx}')
+
             self.image_view.setImage(self.disp_img)
+            self.statusbar_main.showMessage(f'Image Display is {self.corrImg1}')
         except:
             logger.warning("Indices are out of range; Image cannot be created")
             pass
@@ -939,12 +924,66 @@ class midasWindow(QtWidgets.QMainWindow):
 
         self.spectrum_view.addItem(self.spec_roi)
 
+    def displayStackInfo(self):
+
+        try:
+
+            if isinstance(self.file_name, list):
+                info = f'Folder; {os.path.dirname(self.file_name[0])} \n'
+                for n, name in enumerate(self.file_name):
+                    info += f'{n}: {os.path.basename(name)} \n'
+
+                # info = f'Stack order; {[name for name in enumerate(self.file_name)]}'
+            else:
+                info = f'Stack; {self.file_name}'
+
+            self.infoWindow = StackInfo(str(info))
+            self.infoWindow.show()
+
+        except AttributeError:
+            self.statusbar_main.showMessage('Warning: No Image Data Loaded')
+
+    def stackIndexToNames(self):
+        #create list of tiff file names for virtutal stack for plot axes
+        self.elemFileName = []
+
+        if isinstance(self.file_name, list):
+            for name in self.file_name:
+                   self.elemFileName.append(os.path.basename(name).split('.')[0])
+
+            logger.info(f" Virtual Stack - list of image names; {self.elemFileName}")
+            
+            #if the roi focus on one frame, Note that this slicing excludes the last index
+            if int(self.spec_lo_idx) == int(self.spec_hi_idx):
+                self.corrImg1 = str(self.elemFileName[int(self.spec_lo_idx)])
+            else:
+                self.corrImg1 = self.elemFileName[int(self.spec_lo_idx):int(self.spec_hi_idx)]
+                if len(self.corrImg1)>1:
+                   self.corrImg1 = f"Sum of {self.corrImg1} " 
+
+            if int(self.spec_lo_m_idx) == int(self.spec_hi_m_idx):
+                self.corrImg2 = str(self.elemFileName[int(self.spec_lo_m_idx)])
+
+            else:
+                self.corrImg2 = self.elemFileName[int(self.spec_lo_m_idx):int(self.spec_hi_m_idx)]
+
+                if len(self.corrImg2)>1:
+                    self.corrImg2 = f"Sum of {self.corrImg2}"
+
+            logger.info(f'Correlation stack {int(self.spec_lo_idx)}:{int(self.spec_hi_idx)} with {int(self.spec_lo_m_idx)}:{int(self.spec_hi_m_idx)}')
+
+            logger.info(f" Virtual Stack; corrlation plot of {self.corrImg1} vs {self.corrImg2}")
+        else:
+            self.corrImg1 =f" Sum of {os.path.basename(self.file_name).split('.')[0]}_{int(self.spec_lo_idx)} to {int(self.spec_hi_idx)}"
+            self.corrImg2 = f" Sum of {os.path.basename(self.file_name).split('.')[0]}_{int(self.spec_lo_m_idx)} to {int(self.spec_hi_m_idx)}"
+            logger.info(f" corrlation plot of {self.corrImg1} vs {self.corrImg2}")
+
     def correlation_plot(self):
+        self.stackIndexToNames()
 
-        self.statusbar_main.showMessage(f'Correlation stack {int(self.spec_lo_idx)}:{int(self.spec_hi_idx)} with '
-                                        f'{int(self.spec_lo_m_idx)}:{int(self.spec_hi_m_idx)}')
-
-        self.scatter_window = ScatterPlot(self.img1, self.img2, 'Image1,Image2')
+        self.statusbar_main.showMessage(f'Correlation of {self.corrImg1} with {self.corrImg2}')
+        
+        self.scatter_window = ScatterPlot(self.img1, self.img2, (str(self.corrImg1),str(self.corrImg2)))
 
         ph = self.geometry().height()
         pw = self.geometry().width()
@@ -1050,7 +1089,7 @@ class midasWindow(QtWidgets.QMainWindow):
         eo_, pre1_, pre2_, norm1_, norm2_, norm_order = self.getNormParams()
         self.xanesNormParam['E0'] = eo_
         self.xanesNormParam['pre1'] = pre1_
-        self.xanesNormParam['pre2'] = pre2_
+        self.xanesNormParam['pre2'] = pre2_m
         self.xanesNormParam['post1'] = norm1_
         self.xanesNormParam['post2'] = norm2_
         self.xanesNormParam['norm_order'] = norm_order
