@@ -25,7 +25,7 @@
   </property>
   <property name="windowIcon">
    <iconset>
-    <normaloff>../pancake.ico</normaloff>../pancake.ico</iconset>
+    <normaloff>pancake.ico</normaloff>pancake.ico</iconset>
   </property>
   <property name="styleSheet">
    <string notr="true">font: 10pt &quot;Segoe UI&quot;;
@@ -152,7 +152,7 @@ border-radius: 4px;
             <x>0</x>
             <y>0</y>
             <width>299</width>
-            <height>364</height>
+            <height>231</height>
            </rect>
           </property>
           <attribute name="label">
@@ -582,8 +582,8 @@ border-radius: 4px;
            <rect>
             <x>0</x>
             <y>0</y>
-            <width>245</width>
-            <height>364</height>
+            <width>235</width>
+            <height>332</height>
            </rect>
           </property>
           <attribute name="label">
@@ -1088,8 +1088,8 @@ border-radius: 4px;
            <rect>
             <x>0</x>
             <y>0</y>
-            <width>299</width>
-            <height>363</height>
+            <width>208</width>
+            <height>136</height>
            </rect>
           </property>
           <attribute name="label">
@@ -1222,8 +1222,8 @@ border-radius: 4px;
            <rect>
             <x>0</x>
             <y>0</y>
-            <width>299</width>
-            <height>363</height>
+            <width>214</width>
+            <height>132</height>
            </rect>
           </property>
           <attribute name="label">
@@ -1880,8 +1880,8 @@ border-radius: 4px;
            <rect>
             <x>0</x>
             <y>0</y>
-            <width>288</width>
-            <height>249</height>
+            <width>190</width>
+            <height>123</height>
            </rect>
           </property>
           <attribute name="label">
@@ -1961,8 +1961,8 @@ border-radius: 4px;
            <rect>
             <x>0</x>
             <y>0</y>
-            <width>288</width>
-            <height>249</height>
+            <width>227</width>
+            <height>127</height>
            </rect>
           </property>
           <attribute name="label">
@@ -2524,7 +2524,7 @@ border-radius: 4px;
     <enum>TopToolBarArea</enum>
    </attribute>
    <attribute name="toolBarBreak">
-    <bool>true</bool>
+    <bool>false</bool>
    </attribute>
    <addaction name="actionStack_Info"/>
    <addaction name="actionSave_Image"/>
@@ -2895,12 +2895,12 @@ border-radius: 4px;
  </widget>
  <customwidgets>
   <customwidget>
-   <class>PlotWidget</class>
+   <class>ImageView</class>
    <extends>QGraphicsView</extends>
    <header>pyqtgraph</header>
   </customwidget>
   <customwidget>
-   <class>ImageView</class>
+   <class>PlotWidget</class>
    <extends>QGraphicsView</extends>
    <header>pyqtgraph</header>
   </customwidget>

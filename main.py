@@ -3,21 +3,40 @@
 # Author: Ajith Pattammattel
 # First Version on:06-23-2020
 
-import logging, sys, webbrowser, traceback, os
+import logging, sys, webbrowser, traceback, os, json,h5py
+import scipy.stats as stats
+import numpy as np
+import pandas as pd
+import tifffile as tf
+import pyqtgraph as pg
+import pyqtgraph.exporters
+import scipy.optimize as opt
+import sklearn.decomposition as sd
+import sklearn.cluster as sc
+import larch
+
+from pyqtgraph import plot,ImageView, PlotWidget
+from itertools import combinations
+from scipy.stats import linregress
+from scipy.signal import savgol_filter
+from skimage.transform import resize
+from skimage import filters
+from sklearn import linear_model
+from larch.xafs import preedge
+from pystackreg import StackReg
 
 from PyQt5 import QtWidgets, uic, QtCore
+from PyQt5 import QtWidgets, QtCore, QtGui, uic, QtTest
+from PyQt5.QtGui import QMovie
 from PyQt5.QtWidgets import QMessageBox, QFileDialog, QDesktopWidget, QApplication, QSizePolicy
 from PyQt5.QtCore import QObject, QTimer, QThread, pyqtSignal, pyqtSlot, QRunnable, QThreadPool
-from numpy.lib.shape_base import column_stack
-from pyqtgraph import plot
-from StackPlot import *
-from StackCalcs import *
-from MaskView import *
-from stackInfo import *
+
+from MultiChannel import *
 
 logger = logging.getLogger()
-
 ui_path = os.path.dirname(os.path.abspath(__file__))
+pg.setConfigOption('imageAxisOrder', 'row-major')
+
 
 if hasattr(QtCore.Qt, 'AA_EnableHighDpiScaling'):
     QtWidgets.QApplication.setAttribute(QtCore.Qt.AA_EnableHighDpiScaling, True)
@@ -148,13 +167,13 @@ class midasWindow(QtWidgets.QMainWindow):
 
     # View Options
     def darkMode(self):
-        self.centralwidget.setStyleSheet(open(os.path.join(ui_path, 'darkStyle.css')).read())
+        self.centralwidget.setStyleSheet(open(os.path.join(ui_path, 'css/darkStyle.css')).read())
 
     def defaultMode(self):
-        self.centralwidget.setStyleSheet(open(os.path.join(ui_path, 'defaultStyle.css')).read())
+        self.centralwidget.setStyleSheet(open(os.path.join(ui_path, 'css/defaultStyle.css')).read())
 
     def modernMode(self):
-        self.centralwidget.setStyleSheet(open(os.path.join(ui_path, 'modern.css')).read())
+        self.centralwidget.setStyleSheet(open(os.path.join(ui_path, 'css/modern.css')).read())
 
     def setPlotLineWidth(self, width_input):
         self.plotWidth = width_input
@@ -976,7 +995,7 @@ class midasWindow(QtWidgets.QMainWindow):
         else:
             self.corrImg1 =f" Sum of {os.path.basename(self.file_name).split('.')[0]}_{int(self.spec_lo_idx)} to {int(self.spec_hi_idx)}"
             self.corrImg2 = f" Sum of {os.path.basename(self.file_name).split('.')[0]}_{int(self.spec_lo_m_idx)} to {int(self.spec_hi_m_idx)}"
-            logger.info(f" corrlation plot of {self.corrImg1} vs {self.corrImg2}")
+            #logger.info(f" corrlation plot of {self.corrImg1} vs {self.corrImg2}")
 
     def correlation_plot(self):
         self.stackIndexToNames()
@@ -1089,7 +1108,7 @@ class midasWindow(QtWidgets.QMainWindow):
         eo_, pre1_, pre2_, norm1_, norm2_, norm_order = self.getNormParams()
         self.xanesNormParam['E0'] = eo_
         self.xanesNormParam['pre1'] = pre1_
-        self.xanesNormParam['pre2'] = pre2_m
+        self.xanesNormParam['pre2'] = pre2_
         self.xanesNormParam['post1'] = norm1_
         self.xanesNormParam['post2'] = norm2_
         self.xanesNormParam['norm_order'] = norm_order
@@ -1322,6 +1341,2102 @@ class Worker(QRunnable):
             self.signals.result.emit(result)  # Return the result of the processing
         finally:
             self.signals.finished.emit()  # Done
+
+class singleStackViewer(QtWidgets.QMainWindow):
+    def __init__(self, img_stack, gradient='viridis'):
+        super(singleStackViewer, self).__init__()
+
+        # Load the UI Page
+        uic.loadUi(os.path.join(ui_path, 'uis/singleStackView.ui'), self)
+
+        self.image_view.ui.menuBtn.hide()
+        self.image_view.ui.roiBtn.hide()
+
+        self.img_stack = img_stack
+        self.gradient = gradient
+        self.image_view.setPredefinedGradient(gradient)
+
+        if self.img_stack.ndim == 3:
+            self.dim1, self.dim3, self.dim2 = img_stack.shape
+        elif self.img_stack.ndim == 2:
+            self.dim3, self.dim2 = img_stack.shape
+            self.dim1 = 1
+        self.hs_img_stack.setMaximum(self.dim1 - 1)
+        self.hs_img_stack.setValue(np.round(self.dim1 / 2))
+        self.displayStack()
+
+        # connections
+        self.hs_img_stack.valueChanged.connect(self.displayStack)
+        self.actionSave.triggered.connect(self.saveImageStackAsTIFF)
+
+    def displayStack(self):
+        im_index = self.hs_img_stack.value()
+        if self.img_stack.ndim == 2:
+            self.image_view.setImage(self.img_stack)
+        else:
+            self.image_view.setImage(self.img_stack[im_index])
+        self.label_img_count.setText(f'{im_index + 1}/{self.dim1}')
+
+    def saveImageStackAsTIFF(self):
+        file_name = QFileDialog().getSaveFileName(self, "", '', '*.tiff;;*.tif')
+        if file_name[0]:
+            if self.img_stack.ndim == 3:
+                tf.imsave(str(file_name[0]), np.float32(self.img_stack.transpose(0, 2, 1)))
+            elif self.img_stack.ndim == 2:
+                tf.imsave(str(file_name[0]), np.float32(self.img_stack.T))
+        else:
+            pass
+
+class ComponentViewer(QtWidgets.QMainWindow):
+
+    def __init__(self, comp_stack, energy, comp_spectra, decon_spectra, decomp_map):
+        super(ComponentViewer, self).__init__()
+
+        # Load the UI Page
+        uic.loadUi(os.path.join(ui_path, 'uis/ComponentView.ui'), self)
+        self.centralwidget.setStyleSheet(open(os.path.join(ui_path,'css/defaultStyle.css')).read())
+
+        self.comp_stack = comp_stack
+        self.energy = energy
+        self.comp_spectra = comp_spectra
+        self.decon_spectra = decon_spectra
+        self.decomp_map = decomp_map
+
+        (self.dim1, self.dim3, self.dim2) = self.comp_stack.shape
+        self.hs_comp_number.setMaximum(self.dim1 - 1)
+
+        self.image_view.setImage(self.comp_stack)
+        self.image_view.setPredefinedGradient('viridis')
+        self.image_view.ui.menuBtn.hide()
+        self.image_view.ui.roiBtn.hide()
+
+        self.image_view2.setImage(self.decomp_map)
+        self.image_view2.setPredefinedGradient('bipolar')
+        self.image_view2.ui.menuBtn.hide()
+        self.image_view2.ui.roiBtn.hide()
+
+        # connection
+        self.update_image()
+        self.pb_show_all.clicked.connect(self.show_all_spec)
+        self.hs_comp_number.valueChanged.connect(self.update_image)
+        self.actionSave.triggered.connect(self.save_comp_data)
+        self.pb_openScatterPlot.clicked.connect(self.openScatterPlot)
+        self.pb_showMultiColor.clicked.connect(self.generateMultiColorView)
+
+    def update_image(self):
+        im_index = self.hs_comp_number.value()
+        self.spectrum_view.setLabel('bottom', 'Energy')
+        self.spectrum_view.setLabel('left', 'Intensity', 'A.U.')
+        self.spectrum_view.plot(self.energy, self.decon_spectra[:, im_index], clear=True)
+        self.component_view.setLabel('bottom', 'Energy')
+        self.component_view.setLabel('left', 'Weight', 'A.U.')
+        self.component_view.plot(self.energy, self.comp_spectra[:, im_index], clear=True)
+        self.label_comp_number.setText(f'{im_index + 1}/{self.dim1}')
+        # self.image_view.setCurrentIndex(im_index-1)
+        self.image_view.setImage(self.comp_stack[im_index])
+
+    def openScatterPlot(self):
+        self.scatter_window = ComponentScatterPlot(self.comp_stack, self.comp_spectra)
+
+        ph = self.geometry().height()
+        pw = self.geometry().width()
+        px = self.geometry().x()
+        py = self.geometry().y()
+        dw = self.scatter_window.width()
+        dh = self.scatter_window.height()
+        # self.scatter_window.setGeometry(px+0.65*pw, py + ph - 2*dh-5, dw, dh)
+        self.scatter_window.show()
+
+    def show_all_spec(self):
+        self.spectrum_view.clear()
+        self.plt_colors = ['g', 'b', 'r', 'c', 'm', 'y', 'w'] * 10
+        offsets = np.arange(0, 2, 0.2)
+        self.spectrum_view.addLegend()
+        for ii in range(self.decon_spectra.shape[1]):
+            self.spectrum_view.plot(self.energy,
+                                    (self.decon_spectra[:, ii] / self.decon_spectra[:, ii].max()) + offsets[ii],
+                                    pen=self.plt_colors[ii], name="component" + str(ii + 1))
+
+    def save_comp_data(self):
+        file_name = QFileDialog().getSaveFileName(self, "", '', 'data(*tiff *tif *txt *png )')
+        if file_name[0]:
+            tf.imsave(str(file_name[0]) + '_components.tiff', np.float32(self.comp_stack.transpose(0, 2, 1)),
+                      imagej=True)
+            tf.imsave(str(file_name[0]) + '_component_masks.tiff', np.float32(self.decomp_map.T), imagej=True)
+            np.savetxt(str(file_name[0]) + '_deconv_spec.txt', self.decon_spectra)
+            np.savetxt(str(file_name[0]) + '_component_spec.txt', self.comp_spectra)
+        else:
+            pass
+
+    def generateMultiColorView(self):
+        self.multichanneldict = {}
+
+        for n, (colorName, image) in enumerate(zip(cmap_dict.keys(), self.comp_stack.transpose(0, 1, 2))):
+            low, high = np.min(image), np.max(image)
+            self.multichanneldict[f'Image {n + 1}'] = {'ImageName': f'Image {n + 1}',
+                                                 'ImageDir': '.',
+                                                 'Image': image,
+                                                 'Color': colorName,
+                                                 'CmapLimits': (low, high),
+                                                 'Opacity': 1.0
+                                                 }
+        self.muli_color_window = MultiChannelWindow(image_dict=self.multichanneldict)
+        self.muli_color_window.show()
+
+    # add energy column
+
+class ClusterViewer(QtWidgets.QMainWindow):
+
+    def __init__(self, decon_images, energy, X_cluster, decon_spectra):
+        super(ClusterViewer, self).__init__()
+
+        # Load the UI Page
+        uic.loadUi(os.path.join(ui_path, 'uis/ClusterView.ui'), self)
+        self.centralwidget.setStyleSheet(open(os.path.join(ui_path,'css/defaultStyle.css')).read())
+
+        self.decon_images = decon_images
+        self.energy = energy
+        self.X_cluster = X_cluster
+        self.decon_spectra = decon_spectra
+        (self.dim1, self.dim3, self.dim2) = self.decon_images.shape
+        self.hsb_cluster_number.setMaximum(self.dim1 - 1)
+        self.X_cluster = X_cluster
+
+        self.image_view.setImage(self.decon_images, autoHistogramRange=True, autoLevels=True)
+        self.image_view.setPredefinedGradient('viridis')
+        self.image_view.ui.menuBtn.hide()
+        self.image_view.ui.roiBtn.hide()
+
+        self.cluster_view.setImage(self.X_cluster, autoHistogramRange=True, autoLevels=True)
+        self.cluster_view.setPredefinedGradient('bipolar')
+        self.cluster_view.ui.histogram.hide()
+        self.cluster_view.ui.menuBtn.hide()
+        self.cluster_view.ui.roiBtn.hide()
+
+        # connection
+        self.update_display()
+        self.hsb_cluster_number.valueChanged.connect(self.update_display)
+        self.actionSave.triggered.connect(self.save_clust_data)
+        self.pb_show_all_spec.clicked.connect(self.showAllSpec)
+        self.pb_showMultiColor.clicked.connect(self.generateMultiColorView)
+
+    def update_display(self):
+        im_index = self.hsb_cluster_number.value()
+        self.component_view.setLabel('bottom', 'Energy')
+        self.component_view.setLabel('left', 'Intensity', 'A.U.')
+        self.component_view.plot(self.energy, self.decon_spectra[:, im_index], clear=True)
+        # self.image_view.setCurrentIndex(im_index-1)
+        self.image_view.setImage(self.decon_images[im_index])
+        self.label_comp_number.setText(f'{im_index + 1}/{self.dim1}')
+
+    def save_clust_data(self):
+        file_name = QFileDialog().getSaveFileName(self, "", '', 'data(*tiff *tif *txt *png )')
+        if file_name[0]:
+
+            tf.imsave(str(file_name[0]) + '_cluster.tiff', np.float32(self.decon_images.transpose(0, 2, 1)),
+                      imagej=True)
+            tf.imsave(str(file_name[0]) + '_cluster_map.tiff', np.float32(self.X_cluster.T), imagej=True)
+            np.savetxt(str(file_name[0]) + '_deconv_spec.txt', self.decon_spectra)
+
+        else:
+            logger.error("Saving Cancelled")
+            self.statusbar.showMessage("Saving Cancelled")
+            pass
+
+    def showAllSpec(self):
+        self.component_view.clear()
+        self.plt_colors = ['g', 'b', 'r', 'c', 'm', 'y', 'w'] * 10
+        offsets = np.arange(0, 2, 0.2)
+        self.component_view.addLegend()
+        for ii in range(self.decon_spectra.shape[1]):
+            self.component_view.plot(self.energy,
+                                    (self.decon_spectra[:, ii] / self.decon_spectra[:, ii].max()) + offsets[ii],
+                                    pen=self.plt_colors[ii], name="cluster" + str(ii + 1))
+
+    def generateMultiColorView(self):
+        self.multichanneldict = {}
+
+        for n, (colorName, image) in enumerate(zip(cmap_dict.keys(), self.decon_images.transpose(0, 1, 2))):
+            low, high = np.min(image), np.max(image)
+            self.multichanneldict[f'Image {n + 1}'] = {'ImageName': f'Image {n + 1}',
+                                                 'ImageDir': '.',
+                                                 'Image': image,
+                                                 'Color': colorName,
+                                                 'CmapLimits': (low, high),
+                                                 'Opacity': 1.0
+                                                 }
+        self.muli_color_window = MultiChannelWindow(image_dict=self.multichanneldict)
+        self.muli_color_window.show()
+
+class XANESViewer(QtWidgets.QMainWindow):
+
+    def __init__(self, im_stack=None, e_list=None, refs=None, ref_names=None):
+        super(XANESViewer, self).__init__()
+
+        uic.loadUi(os.path.join(ui_path, 'uis/XANESViewer.ui'), self)
+        self.centralwidget.setStyleSheet(open(os.path.join(ui_path,'css/defaultStyle.css')).read())
+
+        self.im_stack = im_stack
+        self.e_list = e_list
+        self.refs = refs
+        self.ref_names = ref_names
+        self.selected = self.ref_names
+        self.fitResultDict = {}
+        self.fit_method = self.cb_xanes_fit_model.currentText()
+
+        self.decon_ims, self.rfactor, self.coeffs_arr = xanes_fitting(self.im_stack, self.e_list,
+                                                                      self.refs, method=self.fit_method)
+
+        (self.dim1, self.dim2, self.dim3) = self.im_stack.shape
+        self.cn = int(self.dim2 // 2)
+        self.sz = np.max([int(self.dim2 * 0.15), int(self.dim3 * 0.15)])
+        self.image_roi = pg.RectROI([int(self.dim3 // 2), int(self.dim2 // 2)],
+                                    [self.sz, self.sz], pen='w', maxBounds=QtCore.QRectF(0, 0, self.dim3, self.dim2))
+
+        self.image_roi.addTranslateHandle([0, 0], [2, 2])
+        self.image_roi.addRotateHandle([0, 1], [2, 2])
+
+        #self.image_roi = pg.PolyLineROI([[0, 0], [0, self.sz], [self.sz, self.sz], [self.sz, 0]],
+                                        #pos=(int(self.dim2 // 2), int(self.dim3 // 2)),
+                                        #maxBounds=QtCore.QRect(0, 0, self.dim3, self.dim2), closed=True)
+        #self.image_roi.addTranslateHandle([self.sz // 2, self.sz // 2], [2, 2])
+
+        self.stack_center = int(self.dim1 // 2)
+        self.stack_width = int(self.dim1 * 0.05)
+        # self.image_view.setCurrentIndex(self.stack_center)
+
+        self.image_view.addItem(self.image_roi)
+        self.xdata = self.e_list + self.sb_e_shift.value()
+
+        self.scrollBar_setup()
+        self.display_image_data()
+        self.display_references()
+        self.update_spectrum()
+
+        # connections
+        self.sb_e_shift.valueChanged.connect(self.update_spectrum)
+        self.pb_re_fit.clicked.connect(self.re_fit_xanes)
+        self.pb_edit_refs.clicked.connect(self.choose_refs)
+        self.image_roi.sigRegionChanged.connect(self.update_spectrum)
+        self.hsb_xanes_stk.valueChanged.connect(self.display_image_data)
+        self.hsb_chem_map.valueChanged.connect(self.display_image_data)
+        self.pb_showMultiColor.clicked.connect(self.generateMultiColorView)
+
+        #menu
+        self.actionSave_Chem_Map.triggered.connect(self.save_chem_map)
+        self.actionSave_R_factor_Image.triggered.connect(self.save_rfactor_img)
+        self.actionSave_Live_Fit_Data.triggered.connect(self.pg_export_spec_fit)
+        self.actionExport_Fit_Stats.triggered.connect(self.exportFitResults)
+        self.actionExport_Ref_Plot.triggered.connect(self.pg_export_references)
+
+    def scrollBar_setup(self):
+        self.hsb_xanes_stk.setValue(self.stack_center)
+        self.hsb_xanes_stk.setMaximum(self.dim1 - 1)
+        self.hsb_chem_map.setValue(0)
+        self.hsb_chem_map.setMaximum(self.decon_ims.shape[-1] - 1)
+
+    def display_image_data(self):
+
+        self.image_view.setImage(self.im_stack[self.hsb_xanes_stk.value()])
+        self.image_view.ui.menuBtn.hide()
+        self.image_view.ui.roiBtn.hide()
+        self.image_view.setPredefinedGradient('viridis')
+
+        self.image_view_maps.setImage(self.decon_ims.transpose(2, 0, 1)[self.hsb_chem_map.value()])
+        self.image_view_maps.setPredefinedGradient('bipolar')
+        self.image_view_maps.ui.menuBtn.hide()
+        self.image_view_maps.ui.roiBtn.hide()
+
+    def display_references(self):
+
+        self.inter_ref = interploate_E(self.refs, self.xdata)
+        self.plt_colors = ['c', 'm', 'y', 'w'] * 10
+        self.spectrum_view_refs.addLegend()
+        for ii in range(self.inter_ref.shape[0]):
+            if len(self.selected) != 0:
+                self.spectrum_view_refs.plot(self.xdata, self.inter_ref[ii], pen=pg.mkPen(self.plt_colors[ii], width=2),
+                                             name=self.selected[1:][ii])
+            else:
+                self.spectrum_view_refs.plot(self.xdata, self.inter_ref[ii], pen=pg.mkPen(self.plt_colors[ii], width=2),
+                                             name="ref" + str(ii + 1))
+
+    def choose_refs(self):
+        'Interactively exclude some standards from the reference file'
+        self.ref_edit_window = RefChooser(self.ref_names, self.im_stack, self.e_list,
+                                          self.refs, self.sb_e_shift.value(),
+                                          self.cb_xanes_fit_model.currentText())
+        self.ref_edit_window.show()
+        # self.rf_plot = pg.plot(title="RFactor Tracker")
+
+        # connections
+        self.ref_edit_window.choosenRefsSignal.connect(self.update_refs)
+        self.ref_edit_window.fitResultsSignal.connect(self.plotFitResults)
+
+    def update_refs(self, list_):
+        self.selected = list_  # list_ is the signal from ref chooser
+        self.update_spectrum()
+        self.re_fit_xanes()
+
+    def update_spectrum(self):
+
+        self.roi_img = self.image_roi.getArrayRegion(self.im_stack, self.image_view.imageItem, axes=(1, 2))
+        sizex, sizey = self.roi_img.shape[1], self.roi_img.shape[2]
+        posx, posy = self.image_roi.pos()
+        self.roi_info.setText(f'ROI_Pos: {int(posx)},{int(posy)} ROI_Size: {sizex},{sizey}')
+
+        self.xdata1 = self.e_list + self.sb_e_shift.value()
+        self.ydata1 = get_sum_spectra(self.roi_img)
+        self.fit_method = self.cb_xanes_fit_model.currentText()
+
+        if len(self.selected) != 0:
+
+            self.inter_ref = interploate_E(self.refs[self.selected], self.xdata1)
+            stats, coeffs = xanes_fitting_1D(self.ydata1, self.xdata1, self.refs[self.selected],
+                                             method=self.fit_method, alphaForLM=0.05)
+
+        else:
+            self.inter_ref = interploate_E(self.refs, self.xdata1)
+            stats, coeffs = xanes_fitting_1D(self.ydata1, self.xdata1, self.refs,
+                                             method=self.fit_method, alphaForLM=0.05)
+
+        self.fit_ = np.dot(coeffs, self.inter_ref)
+        pen = pg.mkPen('g', width=1.5)
+        pen2 = pg.mkPen('r', width=1.5)
+        pen3 = pg.mkPen('y', width=1.5)
+        self.spectrum_view.addLegend()
+        self.spectrum_view.setLabel('bottom', 'Energy')
+        self.spectrum_view.setLabel('left', 'Intensity', 'A.U.')
+        self.spectrum_view.plot(self.xdata1, self.ydata1, pen=pen, name="Data", clear=True)
+        self.spectrum_view.plot(self.xdata1, self.fit_, name="Fit", pen=pen2)
+
+        for n, (coff, ref, plt_clr) in enumerate(zip(coeffs, self.inter_ref, self.plt_colors)):
+
+            if len(self.selected) != 0:
+
+                self.spectrum_view.plot(self.xdata1, np.dot(coff, ref), name=self.selected[1:][n], pen=plt_clr)
+            else:
+                self.spectrum_view.plot(self.xdata1, np.dot(coff, ref), name="ref" + str(n + 1), pen=plt_clr)
+        # set the rfactor value to the line edit slot
+        self.results = f"Coefficients: {coeffs} \n" \
+                       f"R-Factor: {stats['R_Factor']}, R-Square: {stats['R_Square']},\n " \
+                       f"Chi-Square: {stats['Chi_Square']}, " \
+                       f"Reduced Chi-Square: {stats['Reduced Chi_Square']}"
+
+        self.fit_results.setText(self.results)
+
+    def re_fit_xanes(self):
+        if len(self.selected) != 0:
+            self.decon_ims, self.rfactor, self.coeffs_arr = xanes_fitting(self.im_stack,
+                                                                          self.e_list + self.sb_e_shift.value(),
+                                                                          self.refs[self.selected],
+                                                                          method=self.cb_xanes_fit_model.currentText())
+        else:
+            # if non athena file with no header is loaded no ref file cannot be edited
+            self.decon_ims, self.rfactor, self.coeffs_arr = xanes_fitting(self.im_stack,
+                                                                          self.e_list + self.sb_e_shift.value(),
+                                                                          self.refs,
+                                                                          method=self.cb_xanes_fit_model.currentText())
+
+        # rfactor is a list of all spectra so take the mean
+        self.rfactor_mean = np.mean(self.rfactor)
+        self.image_view_maps.setImage(self.decon_ims.transpose(2, 0, 1))
+        self.scrollBar_setup()
+
+    def plotFitResults(self, decon_ims, rfactor_mean, coeff_array):
+        # upadte the chem maps and scrollbar params
+        self.image_view_maps.setImage(decon_ims.transpose(2, 0, 1))
+        # self.hsb_chem_map.setValue(0)
+        # self.hsb_chem_map.setMaximum(decon_ims.shape[-1]-1)
+
+        # set the rfactor value to the line edit slot
+        self.le_r_sq.setText(f'{rfactor_mean :.4f}')
+
+    def generateMultiColorView(self):
+        self.multichanneldict = {}
+
+        for n, (colorName, image) in enumerate(zip(cmap_dict.keys(), self.decon_ims.transpose((2,0,1)))):
+            low, high = np.min(image), np.max(image)
+            self.multichanneldict[f'Image {n + 1}'] = {'ImageName': f'Image {n + 1}',
+                                                 'ImageDir': '.',
+                                                 'Image': image,
+                                                 'Color': colorName,
+                                                 'CmapLimits': (low, high),
+                                                 'Opacity': 1.0
+                                                 }
+        self.muli_color_window = MultiChannelWindow(image_dict=self.multichanneldict)
+        self.muli_color_window.show()
+
+    def save_chem_map(self):
+        file_name = QFileDialog().getSaveFileName(self, "save image", 'chemical_map.tiff', 'image data (*tiff)')
+        if file_name[0]:
+            tf.imsave(str(file_name[0]) , np.float32(self.decon_ims.transpose(2,0,1)), imagej=True)
+        else:
+            logger.error('No file to save')
+            pass
+
+    def save_rfactor_img(self):
+        file_name = QFileDialog().getSaveFileName(self, "save image", 'r-factor_map.tiff', 'image data (*tiff)')
+        if file_name[0]:
+            tf.imsave(str(file_name[0]), np.float32(self.rfactor), imagej=True)
+        else:
+            logger.error('No file to save')
+            pass
+
+    def save_spec_fit(self):
+        try:
+            to_save = np.column_stack([self.xdata1, self.ydata1, self.fit_])
+            file_name = QFileDialog().getSaveFileName(self, "save spectrum", '', 'spectrum and fit (*txt)')
+            if file_name[0]:
+                np.savetxt(str(file_name[0]) + '.txt', to_save)
+            else:
+                pass
+        except:
+            logger.error('No file to save')
+            pass
+
+    def pg_export_spec_fit(self):
+
+        exporter = pg.exporters.CSVExporter(self.spectrum_view.plotItem)
+        exporter.parameters()['columnMode'] = '(x,y,y,y) for all plots'
+        file_name = QFileDialog().getSaveFileName(self, "save spectrum", '', 'spectrum and fit (*csv)')
+        if file_name[0]:
+            exporter.export(str(file_name[0]) + '.csv')
+        else:
+            pass
+
+    def pg_export_references(self):
+
+        exporter = pg.exporters.CSVExporter(self.spectrum_view_refs.plotItem)
+        exporter.parameters()['columnMode'] = '(x,y,y,y) for all plots'
+        file_name = QFileDialog().getSaveFileName(self, "save references", 'xanes_references.csv', 'column data (*csv)')
+        if file_name[0]:
+            exporter.export(str(file_name[0]))
+        else:
+            pass
+
+    def exportFitResults(self):
+        file_name = QFileDialog().getSaveFileName(self, "save txt", 'xanes_1D_fit_results.txt', 'txt data (*txt)')
+        if file_name[0]:
+            with open(file_name[0], 'w') as file:
+                file.write(self.results)
+        else:
+            pass
+
+class RefChooser(QtWidgets.QMainWindow):
+    choosenRefsSignal: pyqtSignal = QtCore.pyqtSignal(list)
+    fitResultsSignal: pyqtSignal = QtCore.pyqtSignal(np.ndarray, float, np.ndarray)
+
+    def __init__(self, ref_names, im_stack, e_list, refs, e_shift, fit_model):
+        super(RefChooser, self).__init__()
+        uic.loadUi(os.path.join(ui_path, 'uis/RefChooser.ui'), self)
+        self.centralwidget.setStyleSheet(open(os.path.join(ui_path,'css/defaultStyle.css')).read())
+        self.ref_names = ref_names
+        self.refs = refs
+        self.im_stack = im_stack
+        self.e_list = e_list
+        self.e_shift = e_shift
+        self.fit_model = fit_model
+
+        self.all_boxes = []
+        self.rFactorList = []
+
+        self.displayCombinations()
+
+        # selection become more apparent than default with red-ish color
+        self.tableWidget.setStyleSheet("background-color: white; selection-background-color: rgb(200,0,0);")
+
+        # add a line to the plot to walk through the table. Note that the table is not sorted
+        self.selectionLine = pg.InfiniteLine(pos=1, angle=90, pen=pg.mkPen('m', width=2.5),
+                                             movable=True, bounds=None, label='Move Me!')
+        self.stat_view.setLabel('bottom', 'Fit ID')
+        self.stat_view.setLabel('left', 'Reduced Chi^2')
+
+        for n, i in enumerate(self.ref_names):
+            self.cb_i = QtWidgets.QCheckBox(self.ref_box_frame)
+            if n == 0:
+                self.cb_i.setChecked(True)
+                self.cb_i.setEnabled(False)
+            self.cb_i.setObjectName(i)
+            self.cb_i.setText(i)
+            self.gridLayout_2.addWidget(self.cb_i, n, 0, 1, 1)
+            self.cb_i.toggled.connect(self.enableApply)
+            self.all_boxes.append(self.cb_i)
+
+        # connections
+        self.pb_apply.clicked.connect(self.clickedWhichAre)
+        self.pb_combo.clicked.connect(self.tryAllCombo)
+        self.actionExport_Results_csv.triggered.connect(self.exportFitResults)
+        self.selectionLine.sigPositionChanged.connect(self.updateFitWithLine)
+        self.tableWidget.itemSelectionChanged.connect(self.updateWithTableSelection)
+        # self.stat_view.scene().sigMouseClicked.connect(self.moveSelectionLine)
+        self.stat_view.mouseDoubleClickEvent = self.moveSelectionLine
+        self.sb_max_combo.valueChanged.connect(self.displayCombinations)
+        # self.pb_sort_with_r.clicked.connect(lambda: self.tableWidget.sortItems(3, QtCore.Qt.AscendingOrder))
+        self.pb_sort_with_r.clicked.connect(self.sortTable)
+        self.cb_sorter.currentTextChanged.connect(self.sortTable)
+
+    def clickedWhich(self):
+        button_name = self.sender()
+
+    def populateChecked(self):
+        self.onlyCheckedBoxes = []
+        for names in self.all_boxes:
+            if names.isChecked():
+                self.onlyCheckedBoxes.append(names.objectName())
+
+    QtCore.pyqtSlot()
+
+    def clickedWhichAre(self):
+        self.populateChecked()
+        self.choosenRefsSignal.emit(self.onlyCheckedBoxes)
+
+    def generateRefList(self, ref_list, maxCombo, minCombo=1):
+        
+        """
+        Creates a list of reference combinations for xanes fitting
+        
+        Paramaters;
+        
+        ref_list (list): list of ref names from the header
+        maxCombo (int): maximum number of ref lists in combination
+        minCombo (int): min number of ref lists in combination
+        
+        returns;
+
+        1. int: length of total number of combinations
+        2. list: all the combinations
+
+        """
+        
+        if not maxCombo>len(ref_list):
+
+            iter_list = []
+            while minCombo < maxCombo + 1:
+                iter_list += list(combinations(ref_list, minCombo))
+                minCombo += 1
+            return len(iter_list), iter_list
+
+        else: raise ValueError(" Maximum numbinations cannot be larger than number of list items")
+
+    def displayCombinations(self):
+        niter, self.iter_list = self.generateRefList(self.ref_names[1:], self.sb_max_combo.value())
+        self.label_nComb.setText(str(niter) + " Combinations")
+
+    @QtCore.pyqtSlot()
+    def tryAllCombo(self):
+        #empty list to to keep track and plot of reduced chi2 of all the fits 
+        self.rfactor_list = []
+        
+        #create dataframe for the table
+        self.df = pd.DataFrame(columns=['Fit Number', 'References', 'Coefficients',
+                                        'R-Factor', 'R^2', 'chi^2', 'red-chi^2', 'Score'])
+        
+        #df columns is the header for the table widget
+        self.tableWidget.setHorizontalHeaderLabels(self.df.columns)
+        # self.iter_list = list(combinations(self.ref_names[1:],self.sb_max_combo.value()))
+        
+        niter, self.iter_list = self.generateRefList(self.ref_names[1:], self.sb_max_combo.value())
+        tot_combo = len(self.iter_list)
+        for n, refs in enumerate(self.iter_list):
+            self.statusbar.showMessage(f"{n + 1}/{tot_combo}")
+            selectedRefs = (list((str(self.ref_names[0]),) + refs))
+            self.fit_combo_progress.setValue((n + 1) * 100 / tot_combo)
+            self.stat, self.coeffs_arr = xanes_fitting_Binned(self.im_stack, self.e_list + self.e_shift,
+                                                            self.refs[selectedRefs], method=self.fit_model)
+
+            self.rfactor_list.append(self.stat['Reduced Chi_Square'])
+            self.stat_view.plot(x=np.arange(n + 1), y=self.rfactor_list, clear=True, title='Reduced Chi^2',
+                                pen=pg.mkPen('y', width=2, style=QtCore.Qt.DotLine), symbol='o')
+            
+            #arbitary number to rank the best fit
+            fit_score = (self.stat['R_Square']+np.sum(self.coeffs_arr))/(self.stat['R_Factor']+
+                                                                            self.stat['Reduced Chi_Square'])
+
+            resultsDict = {'Fit Number': n, 'References': str(selectedRefs[1:]),
+                           'Coefficients': str(np.around(self.coeffs_arr, 4)),
+                           'Sum of Coefficients' :str(np.around(np.sum(self.coeffs_arr),4)),
+                           'R-Factor': self.stat['R_Factor'], 'R^2': self.stat['R_Square'],
+                           'chi^2': self.stat['Chi_Square'], 'red-chi^2': self.stat['Reduced Chi_Square'],
+                           'Score': np.around(fit_score,4)}
+
+            self.df = pd.concat([self.df, pd.DataFrame([resultsDict])], ignore_index=True)
+
+            self.dataFrametoQTable(self.df)
+            QtTest.QTest.qWait(0.1)  # hepls with real time plotting
+
+        self.stat_view.addItem(self.selectionLine)
+
+    def dataFrametoQTable(self, df_: pd.DataFrame):
+        nRows = len(df_.index)
+        nColumns = len(df_.columns)
+        self.tableWidget.setRowCount(nRows)
+        self.tableWidget.setColumnCount(nColumns)
+        self.tableWidget.setHorizontalHeaderLabels(df_.columns)
+
+        for i in range(nRows):
+            for j in range(nColumns):
+                cell = QtWidgets.QTableWidgetItem(str(df_.values[i][j]))
+                self.tableWidget.setItem(i, j, cell)
+
+        # set the property of the table view. Size policy to make the contents justified
+        self.tableWidget.setSizeAdjustPolicy(QtWidgets.QAbstractScrollArea.AdjustToContents)
+        self.tableWidget.resizeColumnsToContents()
+
+    def exportFitResults(self):
+        file_name = QFileDialog().getSaveFileName(self, "save csv", 'xanes_fit_results_log.csv', 'txt data (*csv)')
+        if file_name[0]:
+            with open(str(file_name[0]), 'w') as fp:
+                self.df.to_csv(fp)
+        else:
+            pass
+
+    def selectTableAndCheckBox(self, x):
+        nSelection = int(round(x))
+        self.tableWidget.selectRow(nSelection)
+        fit_num = int(self.tableWidget.item(nSelection, 0).text())
+        refs_selected = self.iter_list[fit_num]
+
+        # reset all the checkboxes to uncheck state, except the energy
+        for checkstate in self.findChildren(QtWidgets.QCheckBox):
+            if checkstate.isEnabled():
+                checkstate.setChecked(False)
+
+        for cb_names in refs_selected:
+            checkbox = self.findChild(QtWidgets.QCheckBox, name=cb_names)
+            checkbox.setChecked(True)
+
+    def updateFitWithLine(self):
+        pos_x, pos_y = self.selectionLine.pos()
+        x = self.df.index[self.df[str('Fit Number')] == np.round(pos_x)][0]
+        self.selectTableAndCheckBox(x)
+
+    def updateWithTableSelection(self):
+        x = self.tableWidget.currentRow()
+        self.selectTableAndCheckBox(x)
+
+    def moveSelectionLine(self, event):
+        if event.button() == QtCore.Qt.LeftButton:
+            Pos = self.stat_view.plotItem.vb.mapSceneToView(event.pos())
+            self.selectionLine.setPos(Pos.x())
+
+    def sortTable(self):
+        sorter_dict = {'R-Factor': 'R-Factor', 'R-Square': 'R^2',
+                       'Chi-Square': 'chi^2', 'Reduced Chi-Square': 'red-chi^2',
+                       'Fit Number': 'Fit Number'}
+        sorter = sorter_dict[self.cb_sorter.currentText()]
+        self.df = self.df.sort_values(sorter, ignore_index=True)
+        self.dataFrametoQTable(self.df)
+
+    def enableApply(self):
+
+        """  """
+        self.populateChecked()
+        if len(self.onlyCheckedBoxes) > 1:
+            self.pb_apply.setEnabled(True)
+        else:
+            self.pb_apply.setEnabled(False)
+
+class ScatterPlot(QtWidgets.QMainWindow):
+
+    def __init__(self, img1, img2, nameTuple):
+        super(ScatterPlot, self).__init__()
+
+        uic.loadUi(os.path.join(ui_path, 'uis/ScatterView.ui'), self)
+        self.centralwidget.setStyleSheet(open(os.path.join(ui_path,'css/defaultStyle.css')).read())
+        self.clearPgPlot()
+        self.w1 = self.scatterViewer.addPlot()
+        self.img1 = img1
+        self.img2 = img2
+        self.nameTuple = nameTuple
+        x, y = np.shape(self.img1)
+        self.s1 = pg.ScatterPlotItem(size=2, pen=pg.mkPen(None), brush=pg.mkBrush(255,255,0, 255))
+        print(self.s1)
+        #create three polyline ROIs for masking
+        self.Xsize = self.img1.max() / 10
+        self.Ysize = self.img2.max() / 10
+        self.pos = self.img1.flatten().mean()
+        self.scatter_mask = pg.PolyLineROI([[0, 0], [0, self.Ysize], [self.Xsize, self.Ysize], [self.Xsize, 0]],
+                                           pos=None, pen=pg.mkPen('r', width=2), hoverPen=pg.mkPen('w', width=2), 
+                                           closed=True, removable=True)
+        self.scatter_mask2 = pg.PolyLineROI([[self.Xsize*1.2, 0], [self.Xsize*1.2, self.Ysize], [self.Xsize*2, self.Ysize], [self.Xsize*2, 0]],
+                                           pos=None, pen=pg.mkPen('g', width=2), hoverPen=pg.mkPen('w', width=2), 
+                                           closed=True, removable=True)
+        self.scatter_mask3 = pg.PolyLineROI([[self.Xsize*2.5, 0], [self.Xsize*2.5, self.Ysize], [self.Xsize*4, self.Ysize], [self.Xsize*4, 0]],
+                                           pos=None, pen=pg.mkPen('c', width=2),hoverPen=pg.mkPen('w', width=2), 
+                                           closed=True, removable=True)
+
+        self.fitScatter = self.fitScatter2 = self.fitScatter3 = None
+                                           
+        self.rois = {
+                    'ROI 1':(self.scatter_mask,self.rb_roi1.isChecked(),self.fitScatter),
+                    'ROI 2':(self.scatter_mask2,self.rb_roi2.isChecked(),self.fitScatter2),
+                    'ROI 3':(self.scatter_mask3,self.rb_roi3.isChecked(),self.fitScatter3)
+                    }
+
+        self.windowNames = {
+                    'ROI 1':self.fitScatter,
+                    'ROI 2':self.fitScatter2,
+                    'ROI 3':self.fitScatter3
+                    }
+
+        self.s1.setData(self.img1.flatten(), self.img2.flatten())
+        self.w1.setLabel('bottom', self.nameTuple[0], 'counts')
+        self.label_img1.setText(self.nameTuple[0])
+        self.w1.setLabel('left', self.nameTuple[1], 'counts')
+        self.label_img2.setText(self.nameTuple[1])
+        self.w1.addItem(self.s1)
+
+        self.image_view.setImage(self.img1)
+        self.image_view.ui.menuBtn.hide()
+        self.image_view.ui.roiBtn.hide()
+        self.image_view.setPredefinedGradient('thermal')
+
+        self.image_view2.setImage(self.img2)
+        self.image_view2.ui.menuBtn.hide()
+        self.image_view2.ui.roiBtn.hide()
+        self.image_view2.setPredefinedGradient('thermal')
+
+        
+
+        # connections
+        self.actionSave_Plot.triggered.connect(self.pg_export_correlation)
+        self.actionSave_Images.triggered.connect(self.tiff_export_images)
+        #self.pb_define_mask.clicked.connect(lambda:self.createMask(self.scatter_mask))
+        self.pb_define_mask.clicked.connect(self.addMultipleROIs)
+        #self.pb_apply_mask.clicked.connect(lambda:self.getMaskRegion(self.scatter_mask))
+        self.pb_apply_mask.clicked.connect(self.applyMultipleROIs)
+        self.pb_clear_mask.clicked.connect(self.clearMultipleROIs)
+        self.pb_compositeScatter.clicked.connect(self.createCompositeScatter)
+        [rbs.clicked.connect(self.updateROIDict) for rbs in
+         [self.rb_roi1, self.rb_roi2, self.rb_roi3]]
+
+    def pg_export_correlation(self):
+
+        exporter = pg.exporters.CSVExporter(self.w1)
+        exporter.parameters()['columnMode'] = '(x,y,y,y) for all plots'
+        file_name = QFileDialog().getSaveFileName(self, "save correlation", '', 'spectrum and fit (*csv)')
+        if file_name[0]:
+            exporter.export(str(file_name[0]) + '.csv')
+            self.statusbar.showMessage(f"Data saved to {str(file_name[0])}")
+        else:
+            pass
+
+    def tiff_export_images(self):
+        file_name = QFileDialog().getSaveFileName(self, "save images", '', 'spectrum and fit (*tiff)')
+        if file_name[0]:
+            tf.imsave(str(file_name[0]) + '.tiff', np.dstack([self.img1, self.img2]).T)
+            self.statusbar.showMessage(f"Images saved to {str(file_name[0])}")
+        else:
+            pass
+
+    def createMask(self, ROIName):
+        
+        try: self.w1.removeItem(ROIName)
+        except: pass
+        self.w1.addItem(ROIName)
+
+    def clearMask(self, ROIName):
+        self.w1.removeItem(ROIName)
+
+    def clearPgPlot(self):
+        try:
+            self.masked_img.close()
+        except:
+            pass
+
+    def getMaskRegion(self, ROIName, generateSeperateWindows = True):
+
+        """ filter scatterplot points using polylineROI region """
+
+        # Ref : https://stackoverflow.com/questions/57719303/how-to-map-mouse-position-on-a-scatterplot
+
+        #get the roi region:QPaintPathObject
+        roiShape = self.rois[ROIName][0].mapToItem(self.s1, self.rois[ROIName][0].shape())
+        
+        #get data in the scatter plot
+        scatterData = np.array(self.s1.getData())
+        
+        #generate a binary mask for points inside or outside the roishape
+        selected = [roiShape.contains(QtCore.QPointF(pt[0],pt[1])) for pt in scatterData.T]
+
+        # reshape the mask to image dimensions
+        img_selected = np.reshape(selected, (self.img1.shape))
+        
+        #get masked image1
+        self.maskedImage = img_selected * self.img1
+
+        #get rid of the (0,0) values in the masked array
+        self.xData, self.yData = np.compress(selected,scatterData[0]), np.compress(selected,scatterData[1])
+        
+        #linear regeression of the filtered X,Y data
+        result = linregress(self.xData, self.yData)
+
+        #Pearson's correlation of the filtered X,Y data
+        pr, pp = stats.pearsonr(self.xData, self.yData)
+
+        #apply the solved equation to xData to generate the fit line
+        self.yyData = result.intercept + result.slope*self.xData
+
+        #Prepare strings for fit results and stats
+        self.fitLineEqn = f' y =  x*{result.slope :.3e} + {result.intercept :.3e}, R^2 = {result.rvalue**2 :.3f}, r = {pr :.3f}\n'
+        FitStats1 = f' Slope Error = {result.stderr :.3e}, Intercept Error = {result.intercept_stderr :.3e}\n'
+        FitStats2 = f' Pearson’s correlation coefficient = {pr :.3f}'
+        refs = '\n\n ***References****\n\n scipy.stats.linregress, scipy.stats.pearsonr '
+        fitStats = f'\n ***{ROIName} Fit Results***\n\n'+ ' Equation: '+self.fitLineEqn + FitStats1 + FitStats2 + refs
+    
+        #generate new window to plot the results
+
+        if generateSeperateWindows:
+            self.windowNames[ROIName] =  MaskedScatterPlotFit([self.xData,self.yData],[self.xData,self.yyData],img_selected,
+                                                        self.maskedImage,fitStats, self.fitLineEqn, self.nameTuple)
+            self.windowNames[ROIName].show()
+
+
+        '''  
+        from scipy.linalg import lstsq
+        M = xData[:, np.newaxis]**[0, 1] #use >1 for polynomial fits
+        p, res, rnk, s = lstsq(M, yData)
+        yyData = p[0] + p[1]*xData
+        '''
+    
+    def updateROIDict(self):
+        self.rois = {
+                    'ROI 1':(self.scatter_mask,self.rb_roi1.isChecked()),
+                    'ROI 2':(self.scatter_mask2,self.rb_roi2.isChecked()),
+                    'ROI 3':(self.scatter_mask3,self.rb_roi3.isChecked())
+                    }
+
+    def applyMultipleROIs(self):
+        with pg.BusyCursor():
+            self.updateROIDict()
+            for key in self.rois.keys():
+                if self.rois[key][1]:
+                    self.getMaskRegion(key)
+                else:
+                    pass
+
+    def addMultipleROIs(self):
+        self.updateROIDict()
+        for key in self.rois.keys():
+            if self.rois[key][1]:
+                self.createMask(self.rois[key][0])
+            else:
+                self.clearMask(self.rois[key][0])
+
+    def clearMultipleROIs(self):
+        self.updateROIDict()
+        for key in self.rois.keys():
+            if not self.rois[key][1]:
+                self.clearMask(self.rois[key][0])
+            else:
+                pass
+
+    def createCompositeScatter(self):
+        
+        points = []
+        fitLine = []
+        roiFitEqn = {}
+
+        self.updateROIDict()
+        for n, key in enumerate(self.rois.keys()):
+            if self.rois[key][1]:
+                self.getMaskRegion(key, generateSeperateWindows = False)
+                points.append(np.column_stack([self.xData,self.yData]))
+                fitLine.append(np.column_stack([self.xData,self.yyData]))
+                roiFitEqn[key] = self.fitLineEqn
+            else:
+                pass
+        
+        logger.info(f' fitline shape: {np.shape(fitLine)}')
+        logger.info(f' points shape: {np.shape(points)}')
+        self.compositeScatterWindow = CompositeScatterPlot(np.array(points),np.array(fitLine),roiFitEqn, self.nameTuple)
+        self.compositeScatterWindow.show()
+
+    def _createCompositeScatter(self):
+        self.scatterColors = ['w', 'c', 'y', 'k', 'm']
+        points = []
+        fitLine = []
+
+        self.updateROIDict()
+        for n, key in enumerate(self.rois.keys()):
+            if self.rois[key][1]:
+                self.getMaskRegion(key, generateSeperateWindows = False)
+        
+                for x,y,yy in zip(self.xData, self.yData,self.yyData):
+                    
+                    points.append({'pos': (x,y), 'data': 'id', 'size': 3, 'pen': pg.mkPen(None),
+                                    'brush': self.scatterColors[n]})
+                fitLine.extend(np.column_stack((self.xData,self.yyData)))
+            else:
+                pass
+
+        logger.info(f' fitline shape: {np.shape(fitLine)}')
+        self.compositeScatterWindow = CompositeScatterPlot(points,np.array(fitLine))
+        self.compositeScatterWindow.show()                     
+
+    def getROIParams(self):
+        print(np.array(self.scatter_mask.getSceneHandlePositions()))
+
+class MaskedScatterPlotFit(QtWidgets.QMainWindow):
+
+    def __init__(self, scatterData, fitData, mask, maskedImage,fitString, fitEquation, nameTuple):
+        super(MaskedScatterPlotFit, self).__init__()
+
+        uic.loadUi(os.path.join(ui_path, 'uis/maskedScatterPlotFit.ui'), self)
+        self.centralwidget.setStyleSheet(open(os.path.join(ui_path,'css/defaultStyle.css')).read())
+        self.scatterData = scatterData
+        self.fitData = fitData
+        self.mask = mask
+        self.maskedImage = maskedImage
+        self.fitString = fitString
+        self.fitEquation = fitEquation
+        self.nameTuple = nameTuple
+       
+        #set the graphicslayoutwidget in the ui as canvas
+        self.canvas = self.scatterViewer.addPlot()
+        self.canvas.addLegend()
+        self.canvas.setLabel('bottom', self.nameTuple[0], 'counts')
+        self.canvas.setLabel('left', self.nameTuple[1], 'counts')
+        self.gb_maskedImage1.setTitle(f" Masked {self.nameTuple[0]}")
+        
+        #generate a scatter plot item
+        self.scattered = pg.ScatterPlotItem(size=3.5, pen=pg.mkPen(None), brush=pg.mkBrush(5, 214, 255, 200))
+
+        #set scatter plot data
+        self.scattered.setData(scatterData[0],scatterData[1],name='Data')
+
+        #set z value negative to show scatter data behind the fit line
+        self.scattered.setZValue(-10)
+
+        #add scatter plot to the canvas
+        self.canvas.addItem(self.scattered)
+
+        #generate plotitem for fit line 
+        self.fitLinePlot = pg.PlotDataItem(pen=pg.mkPen(pg.mkColor(220,20,60), width=3.3))
+
+        #set line plot data
+        self.fitLinePlot.setData(fitData[0],fitData[1], name = 'Linear Fit')
+
+        #add line plot to the canvas
+        self.canvas.addItem(self.fitLinePlot)
+
+        #display Mask
+        self.imageView_mask.setImage(self.mask)
+        self.imageView_mask.ui.menuBtn.hide()
+        self.imageView_mask.ui.roiBtn.hide()
+        self.imageView_mask.setPredefinedGradient('plasma')
+        
+        #display masked Image
+        self.imageView_maskedImage.setImage(self.maskedImage)
+        self.imageView_maskedImage.ui.menuBtn.hide()
+        self.imageView_maskedImage.ui.roiBtn.hide()
+        self.imageView_maskedImage.setPredefinedGradient('viridis')
+
+        #display Fit stats
+        self.text_fit_results.setPlainText(fitString)
+        self.canvas.setTitle(self.fitEquation, color = 'r')
+
+        #connections
+        self.pb_copy_results.clicked.connect(self.copyFitResults)
+        self.pb_save_results.clicked.connect(self.saveFitResults)
+        self.actionSave_Plot.triggered.connect(self.pg_export_correlation)
+        self.actionSaveMask.triggered.connect(self.saveMask)
+        self.actionSaveMaskedImage.triggered.connect(self.saveImage)
+
+    def saveFitResults(self):
+        S__File = QFileDialog.getSaveFileName(self, "save txt", 'correlationPlotFit.txt', 'txt data (*txt)')
+
+        Text = self.text_fit_results.toPlainText()
+        if S__File[0]:
+            with open(S__File[0], 'w') as file:
+                file.write(Text)
+
+    def copyFitResults(self):
+        self.text_fit_results.selectAll()
+        self.text_fit_results.copy()
+        self.statusbar.showMessage(f"text copied to clipboard")
+
+    def pg_export_correlation(self):
+
+        exporter = pg.exporters.CSVExporter(self.canvas)
+        exporter.parameters()['columnMode'] = '(x,y,y,y) for all plots'
+        file_name = QFileDialog().getSaveFileName(self, "save correlation", 'scatterData.csv', 'spectrum and fit (*csv)')
+        if file_name[0]:
+            exporter.export(str(file_name[0]))
+            self.statusbar.showMessage(f"Data saved to {str(file_name[0])}")
+        else:
+            pass
+
+    def saveImage(self):
+
+        file_name = QFileDialog().getSaveFileName(self, "Save image data", 'image.tiff', 'image file(*tiff *tif )')
+        if file_name[0]:
+            tf.imsave(str(file_name[0]), self.maskedImage)
+            self.statusbar.showMessage(f"Data saved to {str(file_name[0])}")
+        else:
+            self.statusbar.showMessage('Saving cancelled')
+            pass
+
+    def saveMask(self):
+
+        file_name = QFileDialog().getSaveFileName(self, "Save image data", 'mask.tiff', 'image file(*tiff *tif )')
+        if file_name[0]:
+            tf.imsave(str(file_name[0]), self.mask)
+            self.statusbar.showMessage(f"Data saved to {str(file_name[0])}")
+        else:
+            self.statusbar.showMessage('Saving cancelled')
+            pass
+
+class ComponentScatterPlot(QtWidgets.QMainWindow):
+
+    def __init__(self, decomp_stack, specs):
+        super(ComponentScatterPlot, self).__init__()
+
+        uic.loadUi(os.path.join(ui_path, 'uis/ComponentScatterPlot.ui'), self)
+        self.centralwidget.setStyleSheet(open(os.path.join(ui_path,'css/defaultStyle.css')).read())
+        self.w1 = self.scatterViewer.addPlot()
+        self.decomp_stack = decomp_stack
+        self.specs = specs
+        (self.dim1, self.dim3, self.dim2) = self.decomp_stack.shape
+        # fill the combonbox depending in the number of components for scatter plot
+        for n, combs in enumerate(combinations(np.arange(self.dim1), 2)):
+            self.cb_scatter_comp.addItem(str(combs))
+            self.cb_scatter_comp.setItemData(n, combs)
+
+        self.s1 = pg.ScatterPlotItem(size=3, pen=pg.mkPen(None), brush=pg.mkBrush(255, 255, 0, 120))
+
+        # connections
+        self.actionSave_Plot.triggered.connect(self.pg_export_correlation)
+        self.actionSave_Images.triggered.connect(self.tiff_export_images)
+        self.pb_updateComponents.clicked.connect(self.setImageAndScatterPlot)
+        self.pb_define_mask.clicked.connect(self.createMask)
+        self.pb_apply_mask.clicked.connect(self.getMaskRegion)
+        self.pb_reset_mask.clicked.connect(self.resetMask)
+        self.pb_addALine.clicked.connect(lambda: self.createMask(Line=True))
+
+    def setImageAndScatterPlot(self):
+
+        try:
+            self.s1.clear()
+        except:
+            pass
+
+        comp_tuple = self.cb_scatter_comp.currentData()
+        self.img1,self.img2  = self.decomp_stack[comp_tuple[0]],self.decomp_stack[comp_tuple[-1]]
+        self.image_view.setImage(self.decomp_stack[comp_tuple[0]])
+        self.image_view.ui.menuBtn.hide()
+        self.image_view.ui.roiBtn.hide()
+        self.image_view.setPredefinedGradient('bipolar')
+
+        self.image_view2.setImage(self.decomp_stack[comp_tuple[-1]])
+        self.image_view2.ui.menuBtn.hide()
+        self.image_view2.ui.roiBtn.hide()
+        self.image_view2.setPredefinedGradient('bipolar')
+
+        points = []
+        for i,j in zip(self.img1.flatten(),self.img2.flatten()):
+
+                points.append({'pos': (i,j), 'data' : 'id', 'size': 5, 'pen': pg.mkPen(None),
+                           'brush': pg.mkBrush(255, 255, 0, 160)})
+
+        self.s1.addPoints(points)
+        self.w1.addItem(self.s1)
+        #self.s1.setData(self.specs[:, comp_tuple[0]], self.specs[:, comp_tuple[-1]])
+        self.w1.setLabel('bottom', f'PC{comp_tuple[0]+1}')
+        self.w1.setLabel('left', f'PC{comp_tuple[-1]+1}')
+        self.label_im1.setText(f'PC{comp_tuple[0]+1}')
+        self.label_im2.setText(f'PC{comp_tuple[-1]+1}')
+
+    def createMask(self, Line = False):
+
+        self.size = self.img1.max() / 10
+        self.pos = int(self.img1.mean())
+
+        if Line:
+            self.lineROI = pg.LineSegmentROI([0, 1],pos=(self.pos, self.pos),
+                                             pen=pg.mkPen('r', width=4),hoverPen=pg.mkPen('g', width=4),
+                                             removable=True)
+            self.w1.addItem(self.lineROI)
+
+        else:
+
+            self.scatter_mask = pg.PolyLineROI([[0, 0], [0, self.size], [self.size, self.size], [self.size, 0]],
+                                               pos=(self.pos, self.pos), pen=pg.mkPen('r', width=4),
+                                               hoverPen=pg.mkPen('g', width=4),
+                                               closed=True, removable=True)
+
+            self.w1.addItem(self.scatter_mask)
+
+    def clearMask(self):
+        try:
+            self.w1.removeItem(self.scatter_mask)
+        except AttributeError:
+            pass
+
+    def clearPgPlot(self):
+        try:
+            self.masked_img.close()
+        except:
+            pass
+
+    def getMaskRegion(self):
+
+        # Ref : https://stackoverflow.com/questions/57719303/how-to-map-mouse-position-on-a-scatterplot
+
+        roiShape = self.scatter_mask.mapToItem(self.s1, self.scatter_mask.shape())
+        self._points = list()
+        logger.info("Building Scatter Plot Window; Please wait..")
+        for i in range(len(self.img1.flatten())):
+            self._points.append(QtCore.QPointF(self.img1.flatten()[i], self.img2.flatten()[i]))
+
+        selected = [roiShape.contains(pt) for pt in self._points]
+        img_selected = np.reshape(selected, (self.img1.shape))
+
+        self.masked_img = singleStackViewer(img_selected * self.img1, gradient='bipolar')
+        self.masked_img.show()
+
+    def pg_export_correlation(self):
+
+        exporter = pg.exporters.CSVExporter(self.w1)
+        exporter.parameters()['columnMode'] = '(x,y,y,y) for all plots'
+        file_name = QFileDialog().getSaveFileName(self, "save correlation", '', 'spectrum and fit (*csv)')
+        if file_name[0]:
+            exporter.export(str(file_name[0]) + '.csv')
+            self.statusbar.showMessage(f"Data saved to {str(file_name[0])}")
+        else:
+            pass
+
+    def tiff_export_images(self):
+        file_name = QFileDialog().getSaveFileName(self, "save images", '', 'spectrum and fit (*tiff)')
+        if file_name[0]:
+            tf.imsave(str(file_name[0]) + '.tiff', np.dstack([self.img1, self.img2]).T)
+            self.statusbar.showMessage(f"Images saved to {str(file_name[0])}")
+        else:
+            pass
+
+class LoadingScreen(QtWidgets.QSplashScreen):
+
+    def __init__(self):
+        super(LoadingScreen, self).__init__()
+        uic.loadUi(os.path.join(ui_path, 'uis/animationWindow.ui'), self)
+        self.setWindowOpacity(0.65)
+        self.movie = QMovie("uis/animation.gif")
+        self.label.setMovie(self.movie)
+
+    def mousePressEvent(self, event):
+        # disable default "click-to-dismiss" behaviour
+        pass
+
+    def startAnimation(self):
+        self.movie.start()
+        self.show()
+
+    def stopAnimation(self):
+        self.movie.stop()
+        self.hide()
+
+class CompositeScatterPlot(QtWidgets.QMainWindow):
+
+    def __init__(self, scatterPoints,fitLine, fitEquations, nameTuple):
+        super(CompositeScatterPlot, self).__init__()
+
+        uic.loadUi(os.path.join(ui_path, 'uis/multipleScatterFit.ui'), self)
+        self.centralwidget.setStyleSheet(open(os.path.join(ui_path,'css/defaultStyle.css')).read())
+
+        self.scatterPoints = scatterPoints
+        self.fitLine = fitLine
+        self.scatterColors = ['r', 'g', 'c', 'w', 'k']
+        self.fitColors = ['b', 'r', 'w', 'k', 'b']
+        self.roiNames = list(fitEquations.keys())
+        self.fitEqns = list(fitEquations.values())
+        self.nameTuple = nameTuple
+
+        #self.scatterViewer.setBackground('w')
+        #set the graphicslayoutwidget in the ui as canvas
+        self.canvas = self.scatterViewer.addPlot()
+        self.canvas.addLegend()
+        self.canvas.setLabel('bottom', self.nameTuple[0], 'counts')
+        self.canvas.setLabel('left', self.nameTuple[1], 'counts')
+
+        #connections
+        self.actionExport.triggered.connect(self.exportData)
+        self.actionSave_as_PNG.triggered.connect(self.exportAsPNG)
+
+        with pg.BusyCursor():
+        
+            for arr, fitline, clr, fitClr, rname, feqn in zip(self.scatterPoints,self.fitLine,
+                                                self.scatterColors,self.fitColors,self.roiNames,self.fitEqns):
+
+                sctrPoints = []
+                for pt in arr:
+                    sctrPoints.append({'pos': (pt[0],pt[1]), 'data': 'id', 'size': 3, 
+                                        'pen': pg.mkPen(None),'brush': clr})
+
+                #generate a scatter plot item
+                self.scattered = pg.ScatterPlotItem(size=3.5, pen=clr, brush=pg.mkBrush(5, 214, 255, 200))
+                #set scatter plot data
+                self.scattered.setPoints(sctrPoints, name  = rname)
+
+                #set z value negative to show scatter data behind the fit line
+                self.scattered.setZValue(-10)
+
+                #add scatter plot to the canvas
+                self.canvas.addItem(self.scattered)
+
+                
+                #generate plotitem for fit line 
+                self.fitLinePlot = pg.PlotDataItem(pen=pg.mkPen(fitClr, width=4.5))
+
+                #set line plot data
+                self.fitLinePlot.setData(fitline, name = feqn)
+
+                #add line plot to the canvas
+                self.canvas.addItem(self.fitLinePlot)
+
+    def exportData(self):
+
+        exporter = pg.exporters.CSVExporter(self.canvas)
+        #exporter.parameters()['columnMode'] = '(x,y,y,y) for all plots'
+        file_name = QFileDialog().getSaveFileName(self, "Save CSV Data", 'scatter.csv', 'image file (*csv)')
+        if file_name[0]:
+            exporter.export(str(file_name[0]))
+            self.statusbar.showMessage(f"Data saved to {str(file_name[0])}")
+        else:
+            pass
+
+    def exportAsPNG(self):
+        file_name = QtWidgets.QFileDialog().getSaveFileName(self, "Save Image", 'image.png',
+                                                            'PNG(*.png);; TIFF(*.tiff);; JPG(*.jpg)')
+        exporter = pg.exporters.ImageExporter(self.canvas)
+
+        if file_name[0]:
+            exporter.export(str(file_name[0]))
+            self.statusbar.showMessage(f"Image saved to {str(file_name[0])}")
+        else:
+            pass
+
+class MaskSpecViewer(QtWidgets.QMainWindow):
+
+    def __init__(self, xanes_stack=None, xrf_map=None, energy=[]):
+        super(MaskSpecViewer, self).__init__()
+        uic.loadUi(os.path.join(ui_path,'uis/MaskedView.ui'), self)
+
+        self.xanes_stack = xanes_stack
+        self.xrf_map = xrf_map
+        self.energy = energy
+        self.xrf_map = self.xanes_stack[-1]
+        self.view_data()
+
+        #connections
+        self.sldr_xrf_low.valueChanged.connect(self.create_mask)
+        self.sldr_xrf_high.valueChanged.connect(self.create_mask)
+        self.pb_apply_mask.clicked.connect(self.apply_mask_to_xanes)
+        self.pb_export_mask.clicked.connect(self.export_mask)
+        self.pb_import_mask.clicked.connect(self.import_a_mask)
+        self.actionLoad_Energy_List.triggered.connect(self.load_energy)
+        self.actionLoad_XANES_Stack.triggered.connect(self.load_xanes_stack)
+        self.actionLoad_XRF_Map.triggered.connect(self.load_xrf_map)
+
+    def view_data(self):
+
+        self.xanes_view.setImage(self.xanes_stack)
+        self.xanes_view.ui.menuBtn.hide()
+        self.xanes_view.ui.roiBtn.hide()
+        (self.dim1, self.dim3, self.dim2) = self.xanes_stack.shape
+        self.xanes_view.setPredefinedGradient('viridis')
+        self.xanes_view.setCurrentIndex(self.dim1//2)
+        self.statusbar.showMessage('One image from the XANES stack is used as mask')
+        self.xrf_view.setImage(self.xrf_map)
+        self.xrf_view.ui.menuBtn.hide()
+        self.xrf_view.ui.roiBtn.hide()
+        self.xrf_view.setPredefinedGradient('viridis')
+
+        self.mask_view.ui.menuBtn.hide()
+        self.mask_view.ui.roiBtn.hide()
+
+
+    def create_mask(self):
+        self.threshold_low = np.around(self.sldr_xrf_low.value()*0.01,3)
+        self.threshold_high = np.around(self.sldr_xrf_high.value() * 0.01,3)
+        self.sldr_xrf_low.setMaximum(self.sldr_xrf_high.value()+1)
+        self.sldr_xrf_high.setMinimum(self.sldr_xrf_low.value()+1)
+        self.norm_xrf_map = remove_nan_inf(self.xrf_map)/remove_nan_inf(self.xrf_map.max())
+        self.norm_xrf_map[self.norm_xrf_map<self.threshold_low] = 0
+        self.norm_xrf_map[self.norm_xrf_map > self.threshold_high] = 0
+        self.xrf_view.setImage(self.norm_xrf_map)
+        self.le_sldr_vals.setText(str(self.threshold_low)+' to '+str(self.threshold_high))
+        self.statusbar.showMessage('New Threshold Applied')
+        self.xrf_mask  = np.where(self.norm_xrf_map > 0 , self.norm_xrf_map, 0)
+        self.xrf_mask[self.xrf_mask>0] = 1
+        self.mask_view.setImage(self.xrf_mask)
+
+    def load_xanes_stack(self):
+        """loading a new xanes stack"""
+        filename = QFileDialog().getOpenFileName(self, "Select image data", '', 'image file(*tiff *tif )')
+        self.file_name = (str(filename[0]))
+        self.xanes_stack = tf.imread(self.file_name).transpose(0,2,1)
+        self.view_data()
+
+    def load_energy(self):
+        """To load energy list that will be used for plotting the spectra.
+        number of stack should match length of energy list"""
+
+        file_name = QFileDialog().getOpenFileName(self, "Open energy list", '', 'text file (*.txt)')
+
+        try:
+            self.energy = np.loadtxt(str(file_name[0]))
+            logger.info ('Energy file loaded')
+            assert len(self.energy) == self.dim1
+            self.view_data()
+
+        except OSError:
+            logger.error("No File selected")
+            pass
+
+    def load_xrf_map(self):
+        """To xrf map for masking. If 3D mean will be taken"""
+
+        filename = QFileDialog().getOpenFileName(self, "Select image data", '', 'image file(*tiff *tif )')
+        self.xrf_file_name = (str(filename[0]))
+        self.xrf_map = tf.imread(self.xrf_file_name)
+        if self.xrf_map.ndim == 3:
+            self.xrf_map = self.xrf_map.mean(0).T
+
+        else:
+            self.xrf_map = self.xrf_map.T
+
+        assert (self.dim3,self.dim2) == self.xrf_map.shape, \
+            f'Unexpected image dimensions: {self.xrf_map.shape} vs {(self.dim2,self.dim3)}'
+
+        self.view_data()
+        self.create_mask()
+
+
+    def apply_mask_to_xanes(self):
+
+        """Generates a mask with 0 and 1 from the choosen threshold and multply with the xanes stack.
+        A spectrum will be generated from the new masked stack """
+
+        self.masked_xanes = self.xanes_stack*self.xrf_mask
+        self.xanes_view.setImage(self.masked_xanes)
+        self.xanes_view.setCurrentIndex(self.dim1 // 2)
+        self.statusbar.showMessage('Mask Applied to XANES')
+        self.mask_spec = get_mean_spectra(self.masked_xanes)
+
+        if len(self.energy) != 0:
+            self.xdata = self.energy
+        else:
+            self.xdata = np.arange(0,self.dim1)
+            self.statusbar.showMessage('No Energy List Available; Integer values are used for plotting')
+
+        self.spectrum_view.plot(self.xdata, self.mask_spec, clear=True)
+
+    def import_a_mask(self):
+        filename = QFileDialog().getOpenFileName(self, "Select image data", '', 'image file(*tiff *tif )')
+        xrf_file_name = (str(filename[0]))
+        self.xrf_mask = tf.imread(xrf_file_name).T
+        self.statusbar.showMessage('A New Mask Imported')
+        self.mask_view.setImage(self.xrf_mask)
+        self.apply_mask_to_xanes()
+
+
+    def export_mask(self):
+        try:
+            file_name = QFileDialog().getSaveFileName(self, "Save image data", '', 'image file(*tiff *tif )')
+            tf.imsave(str(file_name[0]) + '.tiff', self.xrf_mask.T)
+            logger.info(f'Updated Image Saved: {str(file_name[0])}')
+            self.statusbar.showMessage('Mask Exported')
+
+        except:
+            logger.error('No file to save')
+            pass
+
+class StackInfo(QtWidgets.QMainWindow):
+
+    def __init__(self, text_to_write :str = ' '):
+        super(StackInfo, self).__init__()
+        uic.loadUi(os.path.join(ui_path, 'uis/log.ui'), self)
+
+        self.text_to_write = text_to_write
+        self.pte_run_cmd.setPlainText(self.text_to_write)
+
+        #connections
+        self.pb_save_cmd.clicked.connect(self.save_file)
+        self.pb_clear_cmd.clicked.connect(self.clear_text)
+
+    def save_file(self):
+        S__File = QFileDialog.getSaveFileName(None, 'SaveFile', '/', "txt Files (*.txt)")
+
+        Text = self.pte_run_cmd.toPlainText()
+        if S__File[0]:
+            with open(S__File[0], 'w') as file:
+                file.write(Text)
+
+    def clear_text(self):
+        self.pte_run_cmd.clear()
+
+""" Helper Functions"""
+
+def get_xrf_data(h='h5file'):
+    """
+    get xrf stack from h5 data generated at NSLS-II beamlines
+
+     Arguments:
+        h5/hdf5 file
+
+     Returns:
+         norm_xrf_stack -  xrf stack image normalized with Io
+         mono_e  - excitation enegy used for xrf
+         beamline - identity of the beamline
+         Io_avg - an average Io value, used before taking log
+
+    """
+
+    f = h5py.File(h, 'r')
+
+    if list(f.keys())[0] == 'xrfmap':
+        logger.info('Data from HXN/TES/SRX')
+        beamline = f['xrfmap/scan_metadata'].attrs['scan_instrument_id']
+
+        try:
+
+            beamline_scalar = {'HXN': 2, 'SRX': 0, 'TES': 0}
+
+            if beamline in beamline_scalar.keys():
+
+                Io = np.array(f['xrfmap/scalers/val'])[:, :, beamline_scalar[beamline]]
+                raw_xrf_stack = np.array(f['xrfmap/detsum/counts'])
+                norm_xrf_stack = raw_xrf_stack
+                Io_avg = int(remove_nan_inf(Io).mean())
+            else:
+                logger.error('Unknown Beamline Scalar')
+        except:
+            logger.warning('Unknown Scalar: Raw Detector count in use')
+            norm_xrf_stack = np.array(f['xrfmap/detsum/counts'])
+
+    elif list(f.keys())[0] == 'xrmmap':
+        logger.info('Data from XFM')
+        beamline = 'XFM'
+        raw_xrf_stack = np.array(f['xrmmap/mcasum/counts'])
+        Io = np.array(f['xrmmap/scalars/I0'])
+        norm_xrf_stack = raw_xrf_stack 
+        Io_avg = int(remove_nan_inf(Io).mean())
+
+    else:
+        logger.error('Unknown Data Format')
+
+    try:
+        mono_e = int(f['xrfmap/scan_metadata'].attrs['instrument_mono_incident_energy'] * 1000)
+        logger.info("Excitation energy was taken from the h5 data")
+
+    except:
+        mono_e = 12000
+        logger.info(f'Unable to get Excitation energy from the h5 data; using default value {mono_e} KeV')
+
+    return remove_nan_inf(norm_xrf_stack.transpose((2,0,1))), mono_e + 1500, beamline, Io_avg
+
+def remove_nan_inf(im):
+    im = np.array(im, dtype=np.float32)
+    im[np.isnan(im)] = 0
+    im[np.isinf(im)] = 0
+    return im
+
+def rebin_image(im, bin_factor):
+    arrx, arry = np.shape(im)
+    if arrx / bin_factor != int or arrx / bin_factor != int:
+        logger.error('Invalid Binning')
+
+    else:
+        shape = (arrx / bin_factor, arry / bin_factor)
+        return im.reshape(shape).mean(-1).mean(1)
+
+def remove_hot_pixels(image_array, NSigma=5):
+    image_array = remove_nan_inf(image_array)
+    a, b, c = np.shape(image_array)
+    img_stack2 = np.zeros((a, b, c))
+    for i in range(a):
+        im = image_array[i, :, :]
+        im[abs(im) > np.std(im) * NSigma] = im.mean()
+        img_stack2[i, :, :] = im
+    return img_stack2
+
+def smoothen(image_array, w_size=5):
+    a, b, c = np.shape(image_array)
+    spec2D_Matrix = np.reshape(image_array, (a, (b * c)))
+    smooth2D_Matrix = savgol_filter(spec2D_Matrix,  w_size, w_size - 2, axis = 0)
+    return remove_nan_inf(np.reshape(smooth2D_Matrix, (a, b, c)))
+
+def resize_stack(image_array, upscaling = False, scaling_factor = 2):
+    en, im1, im2 = np.shape(image_array)
+
+    if upscaling:
+        im1_ = im1 * scaling_factor
+        im2_ = im2 * scaling_factor
+        img_stack_resized = resize(image_array, (en, im1_, im2_))
+
+    else:
+        im1_ = int(im1/scaling_factor)
+        im2_ = int(im2/scaling_factor)
+        img_stack_resized = resize(image_array, (en, im1_, im2_))
+
+    return img_stack_resized
+
+def normalize(image_array, norm_point=-1):
+    norm_stack = image_array/image_array[norm_point]
+    return remove_nan_inf(norm_stack)
+
+def remove_edges(image_array):
+    # z, x, y = np.shape(image_array)
+    return image_array[:, 1:- 1, 1:- 1]
+
+def background_value(image_array):
+    img = image_array.mean(0)
+    img_h = img.mean(0)
+    img_v = img.mean(1)
+    h = np.gradient(img_h)
+    v = np.gradient(img_v)
+    bg = np.min([img_h[h == h.max()], img_v[v == v.max()]])
+    return bg
+
+def background_subtraction(img_stack, bg_percentage=10):
+    img_stack = remove_nan_inf(img_stack)
+    a, b, c = np.shape(img_stack)
+    ref_image = np.reshape(img_stack.mean(0), (b * c))
+    bg_ratio = int((b * c) * 0.01 * bg_percentage)
+    bg_ = np.max(sorted(ref_image)[0:bg_ratio])
+    bged_img_stack = img_stack - bg_[:, np.newaxis, np.newaxis]
+    return bged_img_stack
+
+def background_subtraction2(img_stack, bg_percentage=10):
+    img_stack = remove_nan_inf(img_stack)
+    a, b, c = np.shape(img_stack)
+    bg_ratio = int((b * c) * 0.01 * bg_percentage)
+    bged_img_stack = img_stack.copy()
+
+    for n, img in enumerate(img_stack):
+        bg_ = np.max(sorted(img.flatten())[0:bg_ratio])
+        print(bg_)
+        bged_img_stack[n] = img - bg_
+
+    return remove_nan_inf(bged_img_stack)
+
+def background1(img_stack):
+    img = img_stack.sum(0)
+    img_h = img.mean(0)
+    img_v = img.mean(1)
+    h = np.gradient(img_h)
+    v = np.gradient(img_v)
+    bg = np.min([img_h[h == h.max()], img_v[v == v.max()]])
+    return bg
+
+def get_sum_spectra(image_array):
+    spec = np.sum(image_array, axis=(1,2))
+    return spec
+
+def get_mean_spectra(image_array):
+    spec = np.mean(image_array, axis=(1,2))
+    return spec
+
+def flatten_(image_array):
+    z, x, y = np.shape(image_array)
+    flat_array = np.reshape(image_array, (x * y, z))
+    return flat_array
+
+def image_to_pandas(image_array):
+    a, b, c = np.shape(image_array)
+    im_array = np.reshape(image_array, (a, (b * c)))
+    a, b = im_array.shape
+    df = pd.DataFrame(data=im_array[:, :],
+                      index=['e' + str(i) for i in range(a)],
+                      columns=['s' + str(i) for i in range(b)])
+    return df
+
+def neg_log(image_array):
+    absorb = -1 * np.log(image_array)
+    return remove_nan_inf(absorb)
+
+def clean_stack(img_stack, auto_bg=False, bg_percentage=5):
+    a, b, c = np.shape(img_stack)
+
+    if auto_bg == True:
+        bg_ = background1(img_stack)
+
+    else:
+        sum_spec = (img_stack.sum(1)).sum(1)
+        ref_stk_num = np.where(sum_spec == sum_spec.max())[-1]
+
+        ref_image = np.reshape(img_stack[ref_stk_num], (b * c))
+        bg_ratio = int((b * c) * 0.01 * bg_percentage)
+        bg_ = np.max(sorted(ref_image)[0:bg_ratio])
+
+    bg = np.where(img_stack[ref_stk_num] > bg_, img_stack[ref_stk_num], 0)
+    bg2 = np.where(bg < bg_, bg, 1)
+
+    bged_img_stack = img_stack * bg2
+
+    return remove_nan_inf(bged_img_stack)
+
+def subtractBackground(im_stack,bg_region):
+    if bg_region.ndim == 3:
+        bg_region_ = np.mean(bg_region, axis = (1,2))
+
+    elif bg_region.ndim == 2:
+        bg_region_ = np.mean(bg_region, axis = 1)
+
+    else: bg_region_ = bg_region
+
+    return im_stack - bg_region_[:, np.newaxis, np.newaxis]
+
+def classify(img_stack, correlation='Pearson'):
+    img_stack_ = img_stack
+    a, b, c = np.shape(img_stack_)
+    norm_img_stack = normalize(img_stack_)
+    f = np.reshape(norm_img_stack, (a, (b * c)))
+
+    max_x, max_y = np.where(norm_img_stack.sum(0) == (norm_img_stack.sum(0)).max())
+    ref = norm_img_stack[:, int(max_x), int(max_y)]
+    corr = np.zeros(len(f.T))
+    for s in range(len(f.T)):
+        if correlation == 'Kendall':
+            r, p = stats.kendalltau(ref, f.T[s])
+        elif correlation == 'Pearson':
+            r, p = stats.pearsonr(ref, f.T[s])
+
+        corr[s] = r
+
+    cluster_image = np.reshape(corr, (b, c))
+    return (cluster_image ** 3), img_stack_
+
+def correlation_kmeans(img_stack, n_clusters, correlation='Pearson'):
+    img, bg_image = classify(img_stack, correlation)
+    img[np.isnan(img)] = -99999
+    X = img.reshape((-1, 1))
+    k_means = sc.KMeans(n_clusters)
+    k_means.fit(X)
+
+    X_cluster = k_means.labels_
+    X_cluster = X_cluster.reshape(img.shape) + 1
+
+    return X_cluster
+
+def cluster_stack(im_array, method='KMeans', n_clusters_=4, decomposed=False, decompose_method='PCA',
+                  decompose_comp=2):
+    a, b, c = im_array.shape
+
+    if method == 'Correlation-Kmeans':
+
+        X_cluster = correlation_kmeans(im_array, n_clusters_, correlation='Pearson')
+
+    else:
+
+        methods = {'MiniBatchKMeans': sc.MiniBatchKMeans, 'KMeans': sc.KMeans,
+                   'MeanShift': sc.MeanShift, 'Spectral Clustering': sc.SpectralClustering,
+                   'Affinity Propagation': sc.AffinityPropagation}
+
+        if decomposed:
+            im_array = denoise_with_decomposition(im_array, method_=decompose_method,
+                                                  n_components=decompose_comp)
+
+        flat_array = np.reshape(im_array, (a, (b * c)))
+        init_cluster = methods[method](n_clusters=n_clusters_)
+        init_cluster.fit(np.transpose(flat_array))
+        X_cluster = init_cluster.labels_.reshape(b, c) + 1
+
+    decon_spectra = np.zeros((a, n_clusters_))
+    decon_images = np.zeros((n_clusters_, b, c))
+
+    for i in range(n_clusters_):
+        mask_i = np.where(X_cluster == (i + 1), X_cluster, 0)
+        spec_i = get_sum_spectra(im_array * mask_i)
+        decon_spectra[:, i] = spec_i
+        decon_images[i] = im_array.sum(0) * mask_i
+
+    return decon_images, X_cluster, decon_spectra
+
+def kmeans_variance(im_array):
+    a, b, c = im_array.shape
+    flat_array = np.reshape(im_array, (a, (b * c)))
+    var = np.arange(24)
+    clust_n = np.arange(24) + 2
+
+    for clust in var:
+        init_cluster = sc.KMeans(n_clusters=int(clust + 2))
+        init_cluster.fit(np.transpose(flat_array))
+        var_ = init_cluster.inertia_
+        var[clust] = np.float64(var_)
+
+    kmeans_var_plot = pg.plot(clust_n, var , title = 'KMeans Variance',
+                              pen = pg.mkPen('y', width=2, style=QtCore.Qt.DotLine), symbol='o')
+    kmeans_var_plot.setLabel('bottom', 'Cluster Number')
+    kmeans_var_plot.setLabel('left', 'Sum of squared distances')
+
+def pca_scree(im_stack):
+    new_image = im_stack.transpose(2, 1, 0)
+    x, y, z = np.shape(new_image)
+    img_ = np.reshape(new_image, (x * y, z))
+    pca = sd.PCA(z)
+    pca.fit(img_)
+    #var = pca.explained_variance_ratio_
+    var = pca.singular_values_
+
+    pca_scree_plot = pg.plot(var[:24], title = 'PCA Scree Plot',
+                              pen = pg.mkPen('y', width=2, style=QtCore.Qt.DotLine), symbol='o')
+    pca_scree_plot.addLine(y=0)
+    pca_scree_plot.setLabel('bottom', 'Component Number')
+    pca_scree_plot.setLabel('left', 'Singular Values')
+
+def decompose_stack(im_stack, decompose_method='PCA', n_components_=3):
+    new_image = im_stack.transpose(2, 1, 0)
+    x, y, z = np.shape(new_image)
+    img_ = np.reshape(new_image, (x * y, z))
+    methods_dict = {'PCA': sd.PCA, 'IncrementalPCA': sd.IncrementalPCA,
+                    'NMF': sd.NMF, 'FastICA': sd.FastICA, 'DictionaryLearning': sd.MiniBatchDictionaryLearning,
+                    'FactorAnalysis': sd.FactorAnalysis, 'TruncatedSVD': sd.TruncatedSVD}
+
+    _mdl = methods_dict[decompose_method](n_components=n_components_)
+
+    ims = (_mdl.fit_transform(img_).reshape(x, y, n_components_)).transpose(2, 1, 0)
+    spcs = _mdl.components_.transpose()
+    decon_spetra = np.zeros((z, n_components_))
+    decom_map = np.zeros((ims.shape))
+
+    for i in range(n_components_):
+        f = ims.copy()[i]
+        f[f < 0] = 0
+        spec_i = ((new_image.T * f).sum(1)).sum(1)
+        decon_spetra[:, i] = spec_i
+
+        f[f > 0] = i + 1
+        decom_map[i] = f
+    decom_map = decom_map.sum(0)
+
+    return np.float32(ims), spcs, decon_spetra, decom_map
+
+def denoise_with_decomposition(img_stack, method_='PCA', n_components=4):
+    new_image = img_stack.transpose(2, 1, 0)
+    x, y, z = np.shape(new_image)
+    img_ = np.reshape(new_image, (x * y, z))
+
+    methods_dict = {'PCA': sd.PCA, 'IncrementalPCA': sd.IncrementalPCA,
+                    'NMF': sd.NMF, 'FastICA': sd.FastICA, 'DictionaryLearning': sd.DictionaryLearning,
+                    'FactorAnalysis': sd.FactorAnalysis, 'TruncatedSVD': sd.TruncatedSVD}
+
+    decomposed = methods_dict[method_](n_components=n_components)
+
+    ims = (decomposed.fit_transform(img_).reshape(x, y, n_components)).transpose(2, 1, 0)
+    ims[ims < 0] = 0
+    ims[ims > 0] = 1
+    mask = ims.sum(0)
+    mask[mask > 1] = 1
+    # mask = uniform_filter(mask)
+    filtered = img_stack * mask
+    # plt.figure()
+    # plt.imshow(filtered.sum(0))
+    # plt.title('background removed')
+    # plt.show()
+    return remove_nan_inf(filtered)
+
+def interploate_E(refs, e):
+    n = np.shape(refs)[1]
+    refs = np.array(refs)
+    ref_e = refs[:, 0]
+    ref = refs[:, 1:n]
+    all_ref = []
+    for i in range(n - 1):
+        ref_i = np.interp(e, ref_e, ref[:, i])
+        all_ref.append(ref_i)
+    return np.array(all_ref)
+
+def getStats(spec,fit, num_refs = 2):
+    stats = {}
+
+    r_factor = (np.sum(spec -fit)**2) / np.sum(spec**2)
+    stats['R_Factor'] = np.around(r_factor,5)
+
+    y_mean = np.sum(spec)/len(spec)
+    SS_tot = np.sum((spec-y_mean)**2)
+    SS_res = np.sum((spec - fit)**2)
+    r_square = 1 - (SS_res/SS_tot)
+    stats['R_Square'] = np.around(r_square,4)
+
+    chisq = np.sum((spec - fit) ** 2)
+    stats['Chi_Square'] = np.around(chisq,5)
+
+    red_chisq = chisq/(len(spec) - num_refs)
+    stats['Reduced Chi_Square'] = red_chisq
+
+    return stats
+
+def xanes_fitting_1D(spec, e_list, refs, method='NNLS', alphaForLM = 0.01):
+    """Linear combination fit of image data with reference standards"""
+
+    int_refs = (interploate_E(refs, e_list))
+
+    if method == 'NNLS':
+        coeffs, r = opt.nnls(int_refs.T, spec)
+
+    elif method == 'LASSO':
+        lasso = linear_model.Lasso(positive=True, alpha=alphaForLM) #lowering alpha helps with 1D fits
+        fit_results = lasso.fit(int_refs.T, spec)
+        coeffs = fit_results.coef_
+
+    elif method == 'RIDGE':
+        ridge = linear_model.Ridge(alpha=alphaForLM)
+        fit_results = ridge.fit(int_refs.T, spec)
+        coeffs = fit_results.coef_
+
+    fit = coeffs@int_refs
+    stats = getStats(spec,fit, num_refs = np.min(np.shape(int_refs.T)))
+
+    return stats, coeffs
+
+def xanes_fitting(im_stack, e_list, refs, method='NNLS',alphaForLM = 0.1, binStack = False):
+    """Linear combination fit of image data with reference standards"""
+    
+    if binStack:
+        im_stack = resize_stack(im_stack, scaling_factor = 4)
+
+    en, im1, im2 = np.shape(im_stack)
+    im_array = im_stack.reshape(en, im1 * im2)
+    coeffs_arr = []
+    r_factor_arr = []
+    lasso = linear_model.Lasso(positive=True, alpha=alphaForLM)
+    for n, i in enumerate(range(im1 * im2)):
+        stats, coeffs = xanes_fitting_1D(im_array[:, i], e_list, refs, method=method, alphaForLM=alphaForLM)
+        coeffs_arr.append(coeffs)
+        r_factor_arr.append(stats['R_Factor'])
+
+    abundance_map = np.reshape(coeffs_arr, (im1, im2, -1))
+    r_factor_im = np.reshape(r_factor_arr, (im1, im2))
+
+    return abundance_map, r_factor_im, np.mean(coeffs_arr,axis=0)
+
+def xanes_fitting_Line(im_stack, e_list, refs, method='NNLS',alphaForLM = 0.05):
+    """Linear combination fit of image data with reference standards"""
+    en, im1, im2 = np.shape(im_stack)
+    im_array = np.mean(im_stack,2)
+    coeffs_arr = []
+    meanStats = {'R_Factor':0,'R_Square':0,'Chi_Square':0,'Reduced Chi_Square':0}
+
+    for i in range(im1):
+        stats, coeffs = xanes_fitting_1D(im_array[:, i], e_list, refs,
+                                         method=method, alphaForLM=alphaForLM)
+        coeffs_arr.append(coeffs)
+        for key in stats.keys():
+            meanStats[key] += stats[key]
+
+    for key, vals in meanStats.items():
+        meanStats[key] = np.around((vals/im1),5)
+
+    return meanStats, np.mean(coeffs_arr,axis=0)
+
+def xanes_fitting_Binned(im_stack, e_list, refs, method='NNLS',alphaForLM = 0.05):
+    """Linear combination fit of image data with reference standards"""
+    
+    im_stack = resize_stack(im_stack, scaling_factor = 10)
+    #use a simple filter to find threshold value
+    val = filters.threshold_otsu(im_stack[-1])
+    en, im1, im2 = np.shape(im_stack)
+    im_array = im_stack.reshape(en, im1 * im2)
+    coeffs_arr = []
+    meanStats = {'R_Factor':0,'R_Square':0,'Chi_Square':0,'Reduced Chi_Square':0}
+
+    specs_fitted = 0
+    total_spec = im1*im2
+    for i in range(total_spec):
+        spec = im_array[:, i]
+        #do not fit low intensity/background regions
+        if spec[-1]>val:
+            specs_fitted +=1
+            stats, coeffs = xanes_fitting_1D(spec/spec[-1], e_list, refs,
+                                            method=method, alphaForLM=alphaForLM)
+            coeffs_arr.append(coeffs)
+            for key in stats.keys():
+                meanStats[key] += stats[key]
+        else:
+            pass
+
+    for key, vals in meanStats.items():
+        meanStats[key] = np.around((vals/specs_fitted),6)
+    #print(f"{specs_fitted}/{total_spec}")
+    return meanStats, np.mean(coeffs_arr,axis=0)
+
+def create_df_from_nor(athenafile='fe_refs.nor'):
+    """create pandas dataframe from athena nor file, first column
+    is energy and headers are sample names"""
+
+    refs = np.loadtxt(athenafile)
+    n_refs = refs.shape[-1]
+    skip_raw_n = n_refs+6
+
+    df = pd.read_table(athenafile, delim_whitespace=True, skiprows=skip_raw_n,
+                       header=None, usecols=np.arange(0, n_refs))
+    df2 = pd.read_table(athenafile, delim_whitespace=True, skiprows=skip_raw_n-1,
+                        usecols=np.arange(0, n_refs + 1))
+    new_col = df2.columns.drop('#')
+    df.columns = new_col
+    return df, list(new_col)
+
+def create_df_from_nor_try2(athenafile='fe_refs.nor'):
+    """create pandas dataframe from athena nor file, first column
+    is energy and headers are sample names"""
+
+    refs = np.loadtxt(athenafile)
+    n_refs = refs.shape[-1]
+    df_refs = pd.DataFrame(refs)
+
+    df = pd.read_csv(athenafile, header=None)
+    new_col = list((str(df.iloc[n_refs + 5].values)).split(' ')[2::2])
+    df_refs.columns = new_col
+
+    return df_refs, list(new_col)
+
+def energy_from_logfile(logfile = 'maps_log_tiff.txt'):
+    df = pd.read_csv(logfile, header= None, delim_whitespace=True, skiprows=9)
+    return df[9][df[7]=='energy'].values.astype(float)
+
+def xanesNormalization(e, mu, e0=7125, step=None,
+            nnorm=2, nvict=0, pre1=None, pre2=-50,
+            norm1=100, norm2=None, guess = False):
+    if guess:
+        result = preedge(e, mu, e0, step = step, nnorm=nnorm,
+                         nvict = nvict)
+
+        return result['pre1'],result['pre2'],result['norm1'],result['norm2']
+
+    else:
+        result = preedge(e, mu, e0, step, nnorm,
+                         nvict, pre1, pre2, norm1, norm2)
+
+        return result['pre_edge'],result['post_edge'],result['norm']
+
+def xanesNormStack(e_list,im_stack, e0=7125, step=None,
+            nnorm=2, nvict=0, pre1=None, pre2=-50,
+            norm1=100, norm2=None):
+
+    en, im1, im2 = np.shape(im_stack)
+    im_array = im_stack.reshape(en, im1 * im2)
+    normedStackArray = np.zeros_like(im_array)
+
+    for i in range(im1 * im2):
+        pre_line, post_line, normXANES = xanesNormalization(e_list, im_array[:, i], e0=e0, step=step,
+                           nnorm=nnorm, nvict=nvict, pre1=pre1, pre2=pre2,
+                           norm1=norm1, norm2=norm2, guess=False)
+        normedStackArray[:, i] = normXANES
+
+    return remove_nan_inf(np.reshape(normedStackArray,(en, im1, im2)))
+
+def align_stack(stack_img, ref_image_void = True, ref_stack = None, transformation = StackReg.TRANSLATION,
+                reference = 'previous'):
+
+    ''' Image registration flow using pystack reg'''
+
+    # all the options are in one function
+
+    sr = StackReg(transformation)
+
+    if ref_image_void:
+        tmats_ = sr.register_stack(stack_img, reference=reference)
+
+    else:
+        tmats_ = sr.register_stack(ref_stack, reference=reference)
+        out_ref = sr.transform_stack(ref_stack)
+
+    out_stk = sr.transform_stack(stack_img, tmats=tmats_)
+    return np.float32(out_stk), tmats_
+
+def align_simple(stack_img, transformation = StackReg.TRANSLATION, reference = 'previous'):
+
+    sr = StackReg(transformation)
+    tmats_ = sr.register_stack(stack_img, reference = 'previous')
+    for i in range(10):
+        out_stk = sr.transform_stack(stack_img, tmats=tmats_)
+        import time
+        time.sleep(2)
+    return np.float32(out_stk)
+
+def align_with_tmat(stack_img, tmat_file, transformation = StackReg.TRANSLATION):
+
+    sr = StackReg(transformation)
+    out_stk = sr.transform_stack(stack_img, tmats=tmat_file)
+    return np.float32(out_stk)
+
+def align_stack_iter(stack, ref_stack_void = True, ref_stack = None, transformation = StackReg.TRANSLATION,
+                     method=('previous', 'first'), max_iter=2):
+    if  ref_stack_void:
+        ref_stack = stack
+
+    for i in range(max_iter):
+        sr = StackReg(transformation)
+        for ii in range(len(method)):
+            print(ii,method[ii])
+            tmats = sr.register_stack(ref_stack, reference=method[ii])
+            ref_stack = sr.transform_stack(ref_stack)
+            stack = sr.transform_stack(stack, tmats=tmats)
+
+    return np.float32(stack)
+
+def modifyStack(raw_stack, normalizeStack = False, normToPoint = -1,
+                applySmooth = False, smoothWindowSize = 3,
+                applyThreshold = False, thresholdValue = 0,
+                removeOutliers = False, nSigmaOutlier = 3,
+                applyTranspose = False, transposeVals = (0,1,2),
+                applyCrop = False, cropVals = (0,1,2), removeEdges = False,
+                resizeStack = False, upScaling = False, binFactor = 2
+                ):
+
+
+    ''' A giant function to modify the stack with many possible operations.
+        all the changes can be saved to a jason file as a config file. Enabling and
+        distabling the sliders is a problem'''
+
+    '''
+    normStack = normalize(raw_stack, norm_point=normToPoint)
+    smoothStack = smoothen(raw_stack, w_size= smoothWindowSize)
+    thresholdStack = clean_stack(raw_stack, auto_bg=False, bg_percentage = thresholdValue)
+    outlierStack = remove_hot_pixels(raw_stack, NSigma=nSigmaOutlier)
+    transposeStack = np.transpose(raw_stack, transposeVals)
+    croppedStack = raw_stack[cropVals]
+    edgeStack = remove_edges(raw_stack)
+    binnedStack = resize_stack(raw_stack,upscaling=upScaling,scaling_factor=binFactor)
+    
+    '''
+
+    if removeOutliers:
+        modStack = remove_hot_pixels(raw_stack, NSigma=nSigmaOutlier)
+
+    else:
+        modStack = raw_stack
+
+    if applyThreshold:
+        modStack = clean_stack(modStack, auto_bg=False, bg_percentage=thresholdValue)
+
+    else:
+        pass
+
+    if applySmooth:
+        modStack = smoothen(modStack, w_size=smoothWindowSize)
+
+    else:
+        pass
+
+    if applyTranspose:
+        modStack = np.transpose(modStack, transposeVals)
+
+    else:
+        pass
+
+    if applyCrop:
+        modStack = modStack[cropVals]
+
+    else:
+        pass
+
+    if normalizeStack:
+        modStack = normalize(raw_stack, norm_point=normToPoint)
+    else:
+        pass
+
 
 if __name__ == "__main__":
 
