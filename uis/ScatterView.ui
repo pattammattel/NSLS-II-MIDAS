@@ -17,6 +17,22 @@
    <string notr="true">font:10pt &quot;Segoe UI&quot;;</string>
   </property>
   <widget class="QWidget" name="centralwidget">
+   <property name="styleSheet">
+    <string notr="true">QRadioButton::indicator {
+    border: 3px solid rgb(150, 150,150);
+	width: 15px;
+	height: 15px;
+	border-radius: 10px;
+    background: rgb(255, 255, 255);
+}
+QRadioButton::indicator:hover {
+    border: 3px solid rgb(58, 66, 81);
+}
+QRadioButton::indicator:checked {
+    background: 3px solid rgb(225, 75, 225);
+	border: 3px solid rgb(255, 252, 255);
+}</string>
+   </property>
    <layout class="QGridLayout" name="gridLayout_5">
     <item row="0" column="0">
      <widget class="QGroupBox" name="groupBox">
@@ -24,17 +40,16 @@
        <string>ROI Mask</string>
       </property>
       <layout class="QGridLayout" name="gridLayout_4">
-       <item row="0" column="0">
-        <widget class="QPushButton" name="pb_define_mask">
-         <property name="text">
-          <string>Add</string>
-         </property>
-        </widget>
-       </item>
        <item row="2" column="0" colspan="2">
         <layout class="QGridLayout" name="gridLayout_3">
          <item row="0" column="0">
           <widget class="QRadioButton" name="rb_roi1">
+           <property name="styleSheet">
+            <string notr="true">color: rgb(255, 0, 0);
+background-color: rgb(20, 20, 20);
+font: 87 10pt &quot;Segoe UI Black&quot;;
+</string>
+           </property>
            <property name="text">
             <string>ROI 1</string>
            </property>
@@ -48,6 +63,11 @@
          </item>
          <item row="0" column="1">
           <widget class="QRadioButton" name="rb_roi2">
+           <property name="styleSheet">
+            <string notr="true">color: rgb(0, 255, 0);
+background-color: rgb(20, 20, 20);
+font: 87 10pt &quot;Segoe UI Black&quot;;</string>
+           </property>
            <property name="text">
             <string>ROI 2</string>
            </property>
@@ -58,6 +78,11 @@
          </item>
          <item row="0" column="2">
           <widget class="QRadioButton" name="rb_roi3">
+           <property name="styleSheet">
+            <string notr="true">color: rgb(0, 255, 255);
+background-color: rgb(20, 20, 20);
+font: 87 10pt &quot;Segoe UI Black&quot;;</string>
+           </property>
            <property name="text">
             <string>ROI 3</string>
            </property>
@@ -75,6 +100,13 @@
          </property>
         </widget>
        </item>
+       <item row="0" column="2">
+        <widget class="QPushButton" name="pb_apply_mask">
+         <property name="text">
+          <string>Apply ROI Mask(s)</string>
+         </property>
+        </widget>
+       </item>
        <item row="0" column="1">
         <widget class="QPushButton" name="pb_clear_mask">
          <property name="text">
@@ -82,10 +114,10 @@
          </property>
         </widget>
        </item>
-       <item row="0" column="2">
-        <widget class="QPushButton" name="pb_apply_mask">
+       <item row="0" column="0">
+        <widget class="QPushButton" name="pb_define_mask">
          <property name="text">
-          <string>Apply Mask(s)</string>
+          <string>Add Checked ROI(s)</string>
          </property>
         </widget>
        </item>
@@ -171,10 +203,20 @@
     <addaction name="actionSave_Plot"/>
     <addaction name="actionSave_Images"/>
    </widget>
+   <widget class="QMenu" name="menuEdit">
+    <property name="title">
+     <string>Plot</string>
+    </property>
+    <addaction name="actionSwap_Axes"/>
+   </widget>
    <addaction name="menuFile"/>
+   <addaction name="menuEdit"/>
   </widget>
   <widget class="QStatusBar" name="statusbar"/>
   <action name="actionSave_Plot">
+   <property name="icon">
+    <iconset theme="SP_DialogSaveButton"/>
+   </property>
    <property name="text">
     <string>Save Plot</string>
    </property>
@@ -184,15 +226,20 @@
     <string>Save Images</string>
    </property>
   </action>
+  <action name="actionSwap_Axes">
+   <property name="text">
+    <string>Swap Axes</string>
+   </property>
+  </action>
  </widget>
  <customwidgets>
   <customwidget>
-   <class>ImageView</class>
+   <class>GraphicsLayoutWidget</class>
    <extends>QGraphicsView</extends>
    <header>pyqtgraph</header>
   </customwidget>
   <customwidget>
-   <class>GraphicsLayoutWidget</class>
+   <class>ImageView</class>
    <extends>QGraphicsView</extends>
    <header>pyqtgraph</header>
   </customwidget>

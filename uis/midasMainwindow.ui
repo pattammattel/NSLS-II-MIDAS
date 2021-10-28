@@ -152,7 +152,7 @@ border-radius: 4px;
             <x>0</x>
             <y>0</y>
             <width>299</width>
-            <height>231</height>
+            <height>360</height>
            </rect>
           </property>
           <attribute name="label">
@@ -582,8 +582,8 @@ border-radius: 4px;
            <rect>
             <x>0</x>
             <y>0</y>
-            <width>235</width>
-            <height>332</height>
+            <width>245</width>
+            <height>360</height>
            </rect>
           </property>
           <attribute name="label">
@@ -849,7 +849,7 @@ border-radius: 4px;
             <x>0</x>
             <y>0</y>
             <width>300</width>
-            <height>364</height>
+            <height>360</height>
            </rect>
           </property>
           <attribute name="label">
@@ -1088,8 +1088,8 @@ border-radius: 4px;
            <rect>
             <x>0</x>
             <y>0</y>
-            <width>208</width>
-            <height>136</height>
+            <width>300</width>
+            <height>360</height>
            </rect>
           </property>
           <attribute name="label">
@@ -1222,8 +1222,8 @@ border-radius: 4px;
            <rect>
             <x>0</x>
             <y>0</y>
-            <width>214</width>
-            <height>132</height>
+            <width>300</width>
+            <height>360</height>
            </rect>
           </property>
           <attribute name="label">
@@ -1344,7 +1344,7 @@ border-radius: 4px;
             <x>0</x>
             <y>0</y>
             <width>300</width>
-            <height>363</height>
+            <height>360</height>
            </rect>
           </property>
           <attribute name="label">
@@ -1880,8 +1880,8 @@ border-radius: 4px;
            <rect>
             <x>0</x>
             <y>0</y>
-            <width>190</width>
-            <height>123</height>
+            <width>288</width>
+            <height>246</height>
            </rect>
           </property>
           <attribute name="label">
@@ -1961,8 +1961,8 @@ border-radius: 4px;
            <rect>
             <x>0</x>
             <y>0</y>
-            <width>227</width>
-            <height>127</height>
+            <width>288</width>
+            <height>246</height>
            </rect>
           </property>
           <attribute name="label">
@@ -2075,7 +2075,7 @@ border-radius: 4px;
             <x>0</x>
             <y>0</y>
             <width>311</width>
-            <height>249</height>
+            <height>246</height>
            </rect>
           </property>
           <attribute name="label">
@@ -2494,6 +2494,7 @@ border-radius: 4px;
     <addaction name="actionStack_to_RGBCMY_Image"/>
     <addaction name="actionNormalize_with_a_Stack"/>
     <addaction name="actionSave_Sum_Image"/>
+    <addaction name="actionSave_Mean_Image"/>
    </widget>
    <widget class="QMenu" name="menuBatch">
     <property name="title">
@@ -2741,7 +2742,7 @@ border-radius: 4px;
   </action>
   <action name="actionSave_Sum_Image">
    <property name="text">
-    <string>Export Sum Image </string>
+    <string>Export Sum Image (3D to 2D)</string>
    </property>
   </action>
   <action name="actionSubtract_ROI_BG">
@@ -2881,26 +2882,38 @@ border-radius: 4px;
     <string>Export Image</string>
    </property>
    <property name="toolTip">
-    <string>Saves displayed image frame </string>
+    <string>Saves displayed 2D image frame </string>
    </property>
   </action>
   <action name="actionExport_Stack">
+   <property name="icon">
+    <iconset theme="SP_DialogSaveButton">
+     <normaloff>.</normaloff>.</iconset>
+   </property>
    <property name="text">
     <string>Export Stack</string>
    </property>
    <property name="toolTip">
     <string>Save current stack as is</string>
    </property>
+   <property name="shortcutVisibleInContextMenu">
+    <bool>false</bool>
+   </property>
+  </action>
+  <action name="actionSave_Mean_Image">
+   <property name="text">
+    <string>Export Mean Image (3D to 2D)</string>
+   </property>
   </action>
  </widget>
  <customwidgets>
   <customwidget>
-   <class>ImageView</class>
+   <class>PlotWidget</class>
    <extends>QGraphicsView</extends>
    <header>pyqtgraph</header>
   </customwidget>
   <customwidget>
-   <class>PlotWidget</class>
+   <class>ImageView</class>
    <extends>QGraphicsView</extends>
    <header>pyqtgraph</header>
   </customwidget>
