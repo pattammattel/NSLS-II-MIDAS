@@ -34,6 +34,7 @@ from PyQt5.QtCore import QObject, QTimer, QThread, pyqtSignal, pyqtSlot, QRunnab
 #from MultiChannel import *
 
 logger = logging.getLogger()
+
 try:
 	import cv2
 except: 
