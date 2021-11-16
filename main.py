@@ -25,7 +25,7 @@ from sklearn import linear_model
 from larch.xafs import preedge
 from pystackreg import StackReg
 
-
+from PyQt5 import QtWidgets, uic, QtCore
 from PyQt5 import QtWidgets, QtCore, QtGui, uic, QtTest
 from PyQt5.QtGui import QMovie
 from PyQt5.QtWidgets import QMessageBox, QFileDialog, QDesktopWidget, QApplication, QSizePolicy
@@ -75,6 +75,12 @@ class jsonEncoder(json.JSONEncoder):
         else:
             return super(jsonEncoder, self).default(obj)
 
+if hasattr(QtCore.Qt, 'AA_EnableHighDpiScaling'):
+    QtWidgets.QApplication.setAttribute(QtCore.Qt.AA_EnableHighDpiScaling, True)
+
+if hasattr(QtCore.Qt, 'AA_UseHighDpiPixmaps'):
+    QtWidgets.QApplication.setAttribute(QtCore.Qt.AA_UseHighDpiPixmaps, True)
+
 class midasWindow(QtWidgets.QMainWindow):
 
     def __init__(self, im_stack=None, energy=[], refs=[]):
@@ -86,8 +92,9 @@ class midasWindow(QtWidgets.QMainWindow):
         self.loaded_tranform_file = []
         self.image_roi2_flag = False
         self.refStackAvailable = False
-        self.reloadStack = False
+        self.isAReload = False
         self.plotWidth = 2
+        self.stackStatusDict = {}
 
         self.plt_colors = ['g', 'r', 'c', 'm', 'y', 'w', 'b',
                            pg.mkPen(70, 5, 80), pg.mkPen(255, 85, 130),
@@ -240,6 +247,7 @@ class midasWindow(QtWidgets.QMainWindow):
         self.threadpool.start(worker)
 
     # File Loading
+
     def createVirtualStack(self):
         """ User can load multiple/series of tiff images with same shape.
         The 'self.load_stack()' recognizes 'self.filename as list and create the stack.
@@ -368,6 +376,8 @@ class midasWindow(QtWidgets.QMainWindow):
 
         # if user decides to cancel the file window gui returns to original state
         if self.file_name:
+            self.disconnectImageActions()
+            self.isAReload = False
             self.load_stack()
 
         else:
@@ -518,15 +528,10 @@ class midasWindow(QtWidgets.QMainWindow):
         self.splash.show()
 
     def reloadImageStack(self):
-
-        self.reloadStack = True
+        self.isAReload = True
         self.load_stack()
-        self.reloadStack = False
 
     def update_stack(self):
-        # A better function neeeded here to track image calculations,
-        # will be replaced by a function that takes a dictionary as input that tracks the calculations
-
         self.displayedStack = self.im_stack
         self.crop_to_dim()
 
@@ -643,19 +648,27 @@ class midasWindow(QtWidgets.QMainWindow):
         self.update_spectrum()
         self.update_image_roi()
 
-        # image connections
-        self.image_view.mousePressEvent = self.getPointSpectrum
-        self.spec_roi.sigRegionChanged.connect(self.update_image_roi)
-        self.spec_roi_math.sigRegionChangeFinished.connect(self.spec_roi_calc)
-        self.pb_apply_spec_calc.clicked.connect(self.spec_roi_calc)
-        self.rb_math_roi.clicked.connect(self.update_spectrum)
-        self.pb_add_roi_2.clicked.connect(self.math_img_roi_flag)
-        self.image_roi_math.sigRegionChangeFinished.connect(self.image_roi_calc)
-        self.pb_apply_img_calc.clicked.connect(self.image_roi_calc)
+        if not self.isAReload:
+            # image connections
+            self.image_view.mousePressEvent = self.getPointSpectrum
+            self.spec_roi.sigRegionChanged.connect(self.update_image_roi)
+            self.spec_roi_math.sigRegionChangeFinished.connect(self.spec_roi_calc)
+            self.pb_apply_spec_calc.clicked.connect(self.spec_roi_calc)
+            self.rb_math_roi.clicked.connect(self.update_spectrum)
+            self.pb_add_roi_2.clicked.connect(self.math_img_roi_flag)
+            self.image_roi_math.sigRegionChangeFinished.connect(self.image_roi_calc)
+            self.pb_apply_img_calc.clicked.connect(self.image_roi_calc)
 
         [rbs.clicked.connect(self.setImageROI) for rbs in
          [self.rb_poly_roi, self.rb_elli_roi, self.rb_rect_roi,
           self.rb_line_roi, self.rb_circle_roi]]
+
+    def disconnectImageActions(self):
+        for btns in [self.pb_apply_spec_calc,self.rb_math_roi,self.pb_add_roi_2,self.pb_apply_img_calc]:
+            try: btns.disconnect()
+            except: pass
+
+
 
     def select_elist(self):
         self.energyFileChooser()
@@ -923,14 +936,14 @@ class midasWindow(QtWidgets.QMainWindow):
     def math_img_roi_flag(self):
 
         button_name = self.sender().text()
-
+        logger.info(f"{button_name}")
         if button_name == 'Add ROI_2':
             self.image_view.addItem(self.image_roi_math)
-            self.pb_add_roi_2.setText("Remove ROI_2")
+            self.pb_add_roi_2.setText('Remove ROI_2')
             self.image_roi2_flag = 1
         elif button_name == 'Remove ROI_2':
             self.image_view.removeItem(self.image_roi_math)
-            self.pb_add_roi_2.setText("Add ROI_2")
+            self.pb_add_roi_2.setText('Add ROI_2')
             self.image_roi2_flag = 0
 
         else:
@@ -944,7 +957,7 @@ class midasWindow(QtWidgets.QMainWindow):
             self.update_spec_image_roi()
         else:
             logger.error("No ROI2 found")
-            pass
+            return
 
     def update_spec_image_roi(self):
 
@@ -1035,10 +1048,17 @@ class midasWindow(QtWidgets.QMainWindow):
         self.stackIndexToNames()
 
         self.statusbar_main.showMessage(f'Correlation of {self.corrImg1} with {self.corrImg2}')
-        
-        self.scatter_window = ScatterPlot(self.img1, self.img2, (str(self.corrImg1),str(self.corrImg2)))
 
-        #self.scatter_window = ScatterPlot(self.img1, self.img2, (str(self.corrImg1), str(self.corrImg2)))
+        if self.rb_roiRegionOnly.isChecked():
+            self.roi_mask = self.image_roi.getArrayRegion(self.displayedStack, self.image_view.imageItem,
+                                                          axes=(1, 2))
+            self.roi_img1 = np.mean(self.roi_mask[int(self.spec_lo_idx):int(self.spec_hi_idx)], axis=0)
+            self.roi_img2 = np.mean(self.roi_mask[int(self.spec_lo_m_idx):int(self.spec_hi_m_idx)], axis=0)
+            self.scatter_window = ScatterPlot(self.roi_img1,self.roi_img2, (str(self.corrImg1), str(self.corrImg2)))
+
+        else:
+
+            self.scatter_window = ScatterPlot(self.img1, self.img2, (str(self.corrImg1),str(self.corrImg2)))
 
         ph = self.geometry().height()
         pw = self.geometry().width()
@@ -1077,7 +1097,7 @@ class midasWindow(QtWidgets.QMainWindow):
     def save_disp_img(self):
         file_name = QFileDialog().getSaveFileName(self, "Save image data", 'image.tiff', 'image file(*tiff *tif )')
         if file_name[0]:
-            tf.imsave(str(file_name[0]) + '.tiff', self.disp_img.T)
+            tf.imsave(str(file_name[0]), self.disp_img)
             self.statusbar_main.showMessage(f'Image Saved to {str(file_name[0])}')
             logger.info(f'Updated Image Saved: {str(file_name[0])}')
 
@@ -2089,7 +2109,8 @@ class ScatterPlot(QtWidgets.QMainWindow):
         self.nameTuple = nameTuple
         x, y = np.shape(self.img1)
         self.s1 = pg.ScatterPlotItem(size=2, pen=pg.mkPen(None), brush=pg.mkBrush(255,255,0, 255))
-        print(self.s1)
+        #print(self.s1)
+
         #create three polyline ROIs for masking
         Xsize = self.img1.max() / 6
         Ysize = self.img2.max() / 6
@@ -2449,6 +2470,7 @@ class ComponentScatterPlot(QtWidgets.QMainWindow):
 
         self.s1 = pg.ScatterPlotItem(size=3, pen=pg.mkPen(None), brush=pg.mkBrush(255, 255, 0, 120))
 
+        self. setImageAndScatterPlot()
         # connections
         self.actionSave_Plot.triggered.connect(self.pg_export_correlation)
         self.actionSave_Images.triggered.connect(self.tiff_export_images)
@@ -2510,6 +2532,10 @@ class ComponentScatterPlot(QtWidgets.QMainWindow):
                                                closed=True, removable=True)
 
             self.w1.addItem(self.scatter_mask)
+
+    def resetMask(self):
+        self.clearMask()
+        self.createMask()
 
     def clearMask(self):
         try:
@@ -2875,7 +2901,6 @@ class MultiChannelWindow(QtWidgets.QMainWindow):
         else:
             pass
 
-
     def generateImageDictionary(self):
         """Creates a dictionary contains image path, color scheme chosen, throshold limits etc.
         when user edits the parameters dictionary will be updated and unwrapped for display later.
@@ -2946,7 +2971,6 @@ class MultiChannelWindow(QtWidgets.QMainWindow):
                                                  'CmapLimits': (low, high),
                                                  'Opacity':1.0
                                                  }
-
 
     def loadAnImage(self, image, colormap, cmap_limits, opacity = 1):
         """ load single image and colorbar to the widget. This function will be looped for
@@ -3024,7 +3048,6 @@ class MultiChannelWindow(QtWidgets.QMainWindow):
             self.listWidget.addItem(f"{im_name},{vals['Color']}")
             self.listWidget.setCurrentRow(0)
 
-
     def createMuliColorAndList(self):
         """ Finally Load Images and poplulate the list widget from the dictionary"""
         with pg.BusyCursor(): # gives the circle showing gui is doing something
@@ -3035,7 +3058,6 @@ class MultiChannelWindow(QtWidgets.QMainWindow):
 
             else:
                 pass
-
 
     def sliderSetUp(self, im_array):
         """ Setting the slider min and max from image values"""

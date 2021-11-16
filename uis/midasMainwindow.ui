@@ -1741,7 +1741,7 @@ border-radius: 4px;
              </sizepolicy>
             </property>
             <property name="text">
-             <string>Show ROI Stack</string>
+             <string>Zoom to ROI</string>
             </property>
            </widget>
           </item>
@@ -1873,7 +1873,7 @@ border-radius: 4px;
           </sizepolicy>
          </property>
          <property name="currentIndex">
-          <number>2</number>
+          <number>1</number>
          </property>
          <widget class="QWidget" name="page_4">
           <property name="geometry">
@@ -1992,6 +1992,9 @@ border-radius: 4px;
                 <property name="checked">
                  <bool>false</bool>
                 </property>
+                <property name="autoExclusive">
+                 <bool>false</bool>
+                </property>
                </widget>
               </item>
               <item row="1" column="0">
@@ -2044,7 +2047,7 @@ border-radius: 4px;
                 </item>
                </layout>
               </item>
-              <item row="3" column="0">
+              <item row="4" column="0">
                <spacer name="verticalSpacer_2">
                 <property name="orientation">
                  <enum>Qt::Vertical</enum>
@@ -2061,6 +2064,13 @@ border-radius: 4px;
                <widget class="QPushButton" name="pb_apply_spec_calc">
                 <property name="text">
                  <string>Apply</string>
+                </property>
+               </widget>
+              </item>
+              <item row="3" column="0">
+               <widget class="QRadioButton" name="rb_roiRegionOnly">
+                <property name="text">
+                 <string>Use ROI for Correlations</string>
                 </property>
                </widget>
               </item>
