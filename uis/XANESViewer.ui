@@ -14,8 +14,7 @@
    <string>XANES View</string>
   </property>
   <property name="styleSheet">
-   <string notr="true">font: 10pt &quot;Segoe UI&quot;;
-
+   <string notr="true">font: 10pt &quot;Verdana&quot;;
 
 </string>
   </property>
@@ -77,6 +76,26 @@ color: rgb(255, 5,0);
                  </property>
                  <property name="singleStep">
                   <double>0.500000000000000</double>
+                 </property>
+                </widget>
+               </item>
+               <item>
+                <widget class="QLabel" name="label">
+                 <property name="text">
+                  <string>Alpha:</string>
+                 </property>
+                </widget>
+               </item>
+               <item>
+                <widget class="QDoubleSpinBox" name="dsb_alphaForLM">
+                 <property name="maximum">
+                  <double>10.000000000000000</double>
+                 </property>
+                 <property name="singleStep">
+                  <double>0.250000000000000</double>
+                 </property>
+                 <property name="value">
+                  <double>0.100000000000000</double>
                  </property>
                 </widget>
                </item>
@@ -188,7 +207,7 @@ color: rgb(0, 85, 255);</string>
       </item>
       <item row="0" column="1">
        <layout class="QGridLayout" name="gridLayout_4">
-        <item row="2" column="0" colspan="3">
+        <item row="2" column="0" colspan="4">
          <widget class="QScrollBar" name="hsb_chem_map">
           <property name="sizePolicy">
            <sizepolicy hsizetype="Preferred" vsizetype="Fixed">
@@ -211,13 +230,16 @@ color: rgb(0, 85, 255);</string>
           </property>
          </widget>
         </item>
-        <item row="1" column="0" colspan="3">
-         <widget class="ImageView" name="image_view_maps">
+        <item row="0" column="2">
+         <widget class="QPushButton" name="pb_showMultiColor">
           <property name="sizePolicy">
-           <sizepolicy hsizetype="Expanding" vsizetype="Expanding">
+           <sizepolicy hsizetype="Preferred" vsizetype="Fixed">
             <horstretch>0</horstretch>
             <verstretch>0</verstretch>
            </sizepolicy>
+          </property>
+          <property name="text">
+           <string> Opan as RGBCMY Image </string>
           </property>
          </widget>
         </item>
@@ -240,10 +262,26 @@ color: rgb(0, 85, 255);</string>
           </property>
          </widget>
         </item>
+        <item row="1" column="0" colspan="4">
+         <widget class="ImageView" name="image_view_maps">
+          <property name="sizePolicy">
+           <sizepolicy hsizetype="Expanding" vsizetype="Expanding">
+            <horstretch>0</horstretch>
+            <verstretch>0</verstretch>
+           </sizepolicy>
+          </property>
+         </widget>
+        </item>
         <item row="0" column="1">
-         <widget class="QPushButton" name="pb_showMultiColor">
+         <widget class="QPushButton" name="pb_showCompSpec">
+          <property name="sizePolicy">
+           <sizepolicy hsizetype="Preferred" vsizetype="Fixed">
+            <horstretch>0</horstretch>
+            <verstretch>0</verstretch>
+           </sizepolicy>
+          </property>
           <property name="text">
-           <string> Opan as RGBCMY Image </string>
+           <string>  Show Component Spectrum  </string>
           </property>
          </widget>
         </item>
@@ -277,7 +315,7 @@ color: rgb(0, 85, 255);</string>
            </sizepolicy>
           </property>
           <property name="text">
-           <string>      Advanced Options       </string>
+           <string>Choose References</string>
           </property>
          </widget>
         </item>
@@ -309,7 +347,7 @@ color: rgb(0, 85, 255);</string>
      <x>0</x>
      <y>0</y>
      <width>1089</width>
-     <height>29</height>
+     <height>22</height>
     </rect>
    </property>
    <widget class="QMenu" name="menuFile">
@@ -323,6 +361,7 @@ color: rgb(0, 85, 255);</string>
     <property name="title">
      <string>Spectrum</string>
     </property>
+    <addaction name="actionSave_Live_Fit_Data"/>
     <addaction name="actionactionExport_Ref_Plot"/>
    </widget>
    <widget class="QMenu" name="menuFit">
@@ -330,7 +369,6 @@ color: rgb(0, 85, 255);</string>
      <string>Fit</string>
     </property>
     <addaction name="actionExport_Fit_Stats"/>
-    <addaction name="actionSave_Live_Fit_Data"/>
    </widget>
    <addaction name="menuFile"/>
    <addaction name="menuSpectrum_Data"/>
@@ -358,8 +396,11 @@ color: rgb(0, 85, 255);</string>
    </property>
   </action>
   <action name="actionactionExport_Ref_Plot">
+   <property name="enabled">
+    <bool>false</bool>
+   </property>
    <property name="text">
-    <string>actionExport_Ref_Plot</string>
+    <string>Export References</string>
    </property>
   </action>
   <action name="actionExport_Fit_Stats">

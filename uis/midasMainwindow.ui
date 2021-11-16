@@ -152,7 +152,7 @@ border-radius: 4px;
             <x>0</x>
             <y>0</y>
             <width>368</width>
-            <height>285</height>
+            <height>325</height>
            </rect>
           </property>
           <attribute name="label">
@@ -582,7 +582,7 @@ border-radius: 4px;
            <rect>
             <x>0</x>
             <y>0</y>
-            <width>297</width>
+            <width>300</width>
             <height>392</height>
            </rect>
           </property>
@@ -849,7 +849,7 @@ border-radius: 4px;
             <x>0</x>
             <y>0</y>
             <width>379</width>
-            <height>348</height>
+            <height>322</height>
            </rect>
           </property>
           <attribute name="label">
@@ -1088,8 +1088,8 @@ border-radius: 4px;
            <rect>
             <x>0</x>
             <y>0</y>
-            <width>265</width>
-            <height>169</height>
+            <width>379</width>
+            <height>321</height>
            </rect>
           </property>
           <attribute name="label">
@@ -1222,8 +1222,8 @@ border-radius: 4px;
            <rect>
             <x>0</x>
             <y>0</y>
-            <width>273</width>
-            <height>165</height>
+            <width>379</width>
+            <height>321</height>
            </rect>
           </property>
           <attribute name="label">
@@ -1344,7 +1344,7 @@ border-radius: 4px;
             <x>0</x>
             <y>0</y>
             <width>379</width>
-            <height>347</height>
+            <height>321</height>
            </rect>
           </property>
           <attribute name="label">
@@ -1649,105 +1649,6 @@ border-radius: 4px;
        <property name="topMargin">
         <number>11</number>
        </property>
-       <item row="2" column="0">
-        <widget class="QGroupBox" name="groupBox_2">
-         <property name="sizePolicy">
-          <sizepolicy hsizetype="Preferred" vsizetype="Preferred">
-           <horstretch>0</horstretch>
-           <verstretch>0</verstretch>
-          </sizepolicy>
-         </property>
-         <property name="title">
-          <string>ROI Shape</string>
-         </property>
-         <layout class="QGridLayout" name="gridLayout_38">
-          <item row="0" column="0">
-           <widget class="QRadioButton" name="rb_rect_roi">
-            <property name="sizePolicy">
-             <sizepolicy hsizetype="Preferred" vsizetype="Fixed">
-              <horstretch>0</horstretch>
-              <verstretch>0</verstretch>
-             </sizepolicy>
-            </property>
-            <property name="text">
-             <string>Rectangle</string>
-            </property>
-            <property name="checked">
-             <bool>true</bool>
-            </property>
-           </widget>
-          </item>
-          <item row="0" column="1">
-           <widget class="QRadioButton" name="rb_elli_roi">
-            <property name="sizePolicy">
-             <sizepolicy hsizetype="Preferred" vsizetype="Fixed">
-              <horstretch>0</horstretch>
-              <verstretch>0</verstretch>
-             </sizepolicy>
-            </property>
-            <property name="text">
-             <string>Ellipse</string>
-            </property>
-           </widget>
-          </item>
-          <item row="1" column="0">
-           <widget class="QRadioButton" name="rb_poly_roi">
-            <property name="sizePolicy">
-             <sizepolicy hsizetype="Preferred" vsizetype="Fixed">
-              <horstretch>0</horstretch>
-              <verstretch>0</verstretch>
-             </sizepolicy>
-            </property>
-            <property name="text">
-             <string>Polygon</string>
-            </property>
-            <property name="checked">
-             <bool>false</bool>
-            </property>
-           </widget>
-          </item>
-          <item row="1" column="1">
-           <widget class="QRadioButton" name="rb_circle_roi">
-            <property name="sizePolicy">
-             <sizepolicy hsizetype="Preferred" vsizetype="Fixed">
-              <horstretch>0</horstretch>
-              <verstretch>0</verstretch>
-             </sizepolicy>
-            </property>
-            <property name="text">
-             <string>Circle</string>
-            </property>
-           </widget>
-          </item>
-          <item row="2" column="0">
-           <widget class="QRadioButton" name="rb_line_roi">
-            <property name="sizePolicy">
-             <sizepolicy hsizetype="Preferred" vsizetype="Fixed">
-              <horstretch>0</horstretch>
-              <verstretch>0</verstretch>
-             </sizepolicy>
-            </property>
-            <property name="text">
-             <string>Line</string>
-            </property>
-           </widget>
-          </item>
-          <item row="2" column="1">
-           <widget class="QPushButton" name="pb_show_roi">
-            <property name="sizePolicy">
-             <sizepolicy hsizetype="Preferred" vsizetype="Fixed">
-              <horstretch>0</horstretch>
-              <verstretch>0</verstretch>
-             </sizepolicy>
-            </property>
-            <property name="text">
-             <string>Zoom to ROI</string>
-            </property>
-           </widget>
-          </item>
-         </layout>
-        </widget>
-       </item>
        <item row="1" column="0">
         <widget class="QGroupBox" name="groupBox_8">
          <property name="styleSheet">
@@ -1864,6 +1765,105 @@ border-radius: 4px;
          </layout>
         </widget>
        </item>
+       <item row="2" column="0">
+        <widget class="QGroupBox" name="groupBox_2">
+         <property name="sizePolicy">
+          <sizepolicy hsizetype="Preferred" vsizetype="Preferred">
+           <horstretch>0</horstretch>
+           <verstretch>0</verstretch>
+          </sizepolicy>
+         </property>
+         <property name="title">
+          <string>ROI Shape</string>
+         </property>
+         <layout class="QGridLayout" name="gridLayout_38">
+          <item row="0" column="0">
+           <widget class="QRadioButton" name="rb_rect_roi">
+            <property name="sizePolicy">
+             <sizepolicy hsizetype="Preferred" vsizetype="Fixed">
+              <horstretch>0</horstretch>
+              <verstretch>0</verstretch>
+             </sizepolicy>
+            </property>
+            <property name="text">
+             <string>Rectangle</string>
+            </property>
+            <property name="checked">
+             <bool>true</bool>
+            </property>
+           </widget>
+          </item>
+          <item row="0" column="1">
+           <widget class="QRadioButton" name="rb_elli_roi">
+            <property name="sizePolicy">
+             <sizepolicy hsizetype="Preferred" vsizetype="Fixed">
+              <horstretch>0</horstretch>
+              <verstretch>0</verstretch>
+             </sizepolicy>
+            </property>
+            <property name="text">
+             <string>Ellipse</string>
+            </property>
+           </widget>
+          </item>
+          <item row="1" column="0">
+           <widget class="QRadioButton" name="rb_poly_roi">
+            <property name="sizePolicy">
+             <sizepolicy hsizetype="Preferred" vsizetype="Fixed">
+              <horstretch>0</horstretch>
+              <verstretch>0</verstretch>
+             </sizepolicy>
+            </property>
+            <property name="text">
+             <string>Polygon</string>
+            </property>
+            <property name="checked">
+             <bool>false</bool>
+            </property>
+           </widget>
+          </item>
+          <item row="1" column="1">
+           <widget class="QRadioButton" name="rb_circle_roi">
+            <property name="sizePolicy">
+             <sizepolicy hsizetype="Preferred" vsizetype="Fixed">
+              <horstretch>0</horstretch>
+              <verstretch>0</verstretch>
+             </sizepolicy>
+            </property>
+            <property name="text">
+             <string>Circle</string>
+            </property>
+           </widget>
+          </item>
+          <item row="2" column="0">
+           <widget class="QRadioButton" name="rb_line_roi">
+            <property name="sizePolicy">
+             <sizepolicy hsizetype="Preferred" vsizetype="Fixed">
+              <horstretch>0</horstretch>
+              <verstretch>0</verstretch>
+             </sizepolicy>
+            </property>
+            <property name="text">
+             <string>Line</string>
+            </property>
+           </widget>
+          </item>
+          <item row="2" column="1">
+           <widget class="QPushButton" name="pb_show_roi">
+            <property name="sizePolicy">
+             <sizepolicy hsizetype="Preferred" vsizetype="Fixed">
+              <horstretch>0</horstretch>
+              <verstretch>0</verstretch>
+             </sizepolicy>
+            </property>
+            <property name="text">
+             <string>Zoom to ROI</string>
+            </property>
+           </widget>
+          </item>
+         </layout>
+        </widget>
+       </item>
        <item row="4" column="0">
         <widget class="QToolBox" name="toolBox_3">
          <property name="sizePolicy">
@@ -1880,8 +1880,8 @@ border-radius: 4px;
            <rect>
             <x>0</x>
             <y>0</y>
-            <width>242</width>
-            <height>153</height>
+            <width>361</width>
+            <height>193</height>
            </rect>
           </property>
           <attribute name="label">
@@ -1961,8 +1961,8 @@ border-radius: 4px;
            <rect>
             <x>0</x>
             <y>0</y>
-            <width>303</width>
-            <height>579</height>
+            <width>361</width>
+            <height>231</height>
            </rect>
           </property>
           <attribute name="label">
@@ -2084,7 +2084,7 @@ border-radius: 4px;
            <rect>
             <x>0</x>
             <y>0</y>
-            <width>354</width>
+            <width>386</width>
             <height>273</height>
            </rect>
           </property>
@@ -2387,6 +2387,19 @@ border-radius: 4px;
          </widget>
         </widget>
        </item>
+       <item row="5" column="0">
+        <spacer name="verticalSpacer_4">
+         <property name="orientation">
+          <enum>Qt::Vertical</enum>
+         </property>
+         <property name="sizeHint" stdset="0">
+          <size>
+           <width>20</width>
+           <height>40</height>
+          </size>
+         </property>
+        </spacer>
+       </item>
       </layout>
      </widget>
     </item>
@@ -2398,7 +2411,7 @@ border-radius: 4px;
      <x>0</x>
      <y>0</y>
      <width>1364</width>
-     <height>23</height>
+     <height>29</height>
     </rect>
    </property>
    <property name="toolTip">
@@ -2497,6 +2510,7 @@ border-radius: 4px;
      <string>Batch </string>
     </property>
     <addaction name="actionApply_Crop_to_Folder"/>
+    <addaction name="actionPlotAllCorrelations"/>
    </widget>
    <addaction name="menuFile"/>
    <addaction name="menuImage"/>
@@ -2899,6 +2913,11 @@ border-radius: 4px;
   <action name="actionSave_Mean_Image">
    <property name="text">
     <string>Export Mean Image (3D to 2D)</string>
+   </property>
+  </action>
+  <action name="actionPlotAllCorrelations">
+   <property name="text">
+    <string>Plot All Possible Image Correlations</string>
    </property>
   </action>
  </widget>

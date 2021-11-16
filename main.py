@@ -25,7 +25,7 @@ from sklearn import linear_model
 from larch.xafs import preedge
 from pystackreg import StackReg
 
-
+from PyQt5 import QtWidgets, uic, QtCore
 from PyQt5 import QtWidgets, QtCore, QtGui, uic, QtTest
 from PyQt5.QtGui import QMovie
 from PyQt5.QtWidgets import QMessageBox, QFileDialog, QDesktopWidget, QApplication, QSizePolicy
@@ -34,12 +34,16 @@ from PyQt5.QtCore import QObject, QTimer, QThread, pyqtSignal, pyqtSlot, QRunnab
 #from MultiChannel import *
 
 logger = logging.getLogger()
-
 try:
 	import cv2
 except: 
 	logger.warning("openCV module not found")
 	pass
+if hasattr(QtCore.Qt, 'AA_EnableHighDpiScaling'):
+    QtWidgets.QApplication.setAttribute(QtCore.Qt.AA_EnableHighDpiScaling, True)
+
+if hasattr(QtCore.Qt, 'AA_UseHighDpiPixmaps'):
+    QtWidgets.QApplication.setAttribute(QtCore.Qt.AA_UseHighDpiPixmaps, True)
 
 ui_path = os.path.dirname(os.path.abspath(__file__))
 
@@ -75,12 +79,6 @@ class jsonEncoder(json.JSONEncoder):
             return obj.tolist()
         else:
             return super(jsonEncoder, self).default(obj)
-
-if hasattr(QtCore.Qt, 'AA_EnableHighDpiScaling'):
-    QtWidgets.QApplication.setAttribute(QtCore.Qt.AA_EnableHighDpiScaling, True)
-
-if hasattr(QtCore.Qt, 'AA_UseHighDpiPixmaps'):
-    QtWidgets.QApplication.setAttribute(QtCore.Qt.AA_UseHighDpiPixmaps, True)
 
 class midasWindow(QtWidgets.QMainWindow):
 
@@ -127,7 +125,7 @@ class midasWindow(QtWidgets.QMainWindow):
 
         self.actionOpen_Image_Data.triggered.connect(self.browse_file)
         self.actionOpen_Multiple_Files.triggered.connect(self.createVirtualStack)
-        self.actionSave_as.triggered.connect(self.save_stack)
+        self.actionSave_as.triggered.connect(lambda:self.save_stack())
         self.actionExit.triggered.connect(lambda: QApplication.closeAllWindows())
         self.actionOpen_in_GitHub.triggered.connect(self.open_github_link)
         self.actionLoad_Energy.triggered.connect(self.select_elist)
@@ -148,6 +146,9 @@ class midasWindow(QtWidgets.QMainWindow):
         self.pb_ref_xanes.clicked.connect(self.select_ref_file)
         self.pb_elist_xanes.clicked.connect(self.select_elist)
 
+        #batchjobs
+        self.actionPlotAllCorrelations.triggered.connect(self.plotCorrelationsAllCombinations)
+
         [uis.valueChanged.connect(self.replot_image) for uis in
          [self.hs_smooth_size, self.hs_nsigma, self.hs_bg_threshold]]
 
@@ -162,7 +163,7 @@ class midasWindow(QtWidgets.QMainWindow):
         # ToolBar
         self.actionStack_Info.triggered.connect(self.displayStackInfo)
         self.actionSave_Image.triggered.connect(self.save_disp_img)
-        self.actionExport_Stack.triggered.connect(self.save_stack)
+        self.actionExport_Stack.triggered.connect(lambda:self.save_stack())
 
         # ROI background
         self.actionSubtract_ROI_BG.triggered.connect(lambda: self.threadMaker(self.removeROIBGStack))
@@ -669,8 +670,6 @@ class midasWindow(QtWidgets.QMainWindow):
             try: btns.disconnect()
             except: pass
 
-
-
     def select_elist(self):
         self.energyFileChooser()
         self.efileLoader()
@@ -1070,6 +1069,43 @@ class midasWindow(QtWidgets.QMainWindow):
         # self.scatter_window.setGeometry(px+0.65*pw, py + ph - 2*dh-5, dw, dh)
         self.scatter_window.show()
 
+
+    def plotCorrelationsAllCombinations(self):
+
+        self.stackIndexToNames()
+        allElemCombNum = list(combinations(np.arange(len(self.elemFileName)), 2))
+
+        self.scW1=self.scW2=self.scW3=self.scW4=self.scW5 = None
+        self.scW6=self.scW7=self.scW8=self.scW9=self.scW10 = None
+
+        self.scWindowList = [self.scW1,self.scW2,self.scW3,self.scW4,self.scW5,
+                             self.scW6,self.scW7,self.scW8,self.scW9,self.scW10]
+        self.scWindowDict = {1:self.scW1,2:self.scW2,3:self.scW3,4:self.scW4,5:self.scW5,
+                             6:self.scW6,7:self.scW7,8:self.scW8,9:self.scW9,10:self.scW10}
+
+        if len(allElemCombNum) > len(self.scWindowDict):
+
+            reply = QMessageBox.warning(self,'Plot Window Limit',
+                                        f'The number of combination exceeds '
+                                        f'maxiumum number of '
+                                        f'plot windows. First {len(self.scWindowDict)} '
+                                        f'combinations will be plotted. \n      Proceed?',
+                                        QMessageBox.Yes | QMessageBox.No, QMessageBox.No)
+
+            if reply == QMessageBox.Yes:
+
+                for i, pair in enumerate(allElemCombNum):
+                    im1 = self.displayedStack[pair[0]]
+                    im2 = self.displayedStack[pair[1]]
+                    im1Name = self.elemFileName[pair[0]]
+                    im2Name = self.elemFileName[pair[1]]
+
+                    self.scWindowDict[i] = ScatterPlot(im1, im2, (str(im1Name), str(im2Name)))
+                    self.scWindowDict[i].show()
+
+            if reply == QMessageBox.No:
+                return
+
     def getROIMask(self):
         self.roi_mask = self.image_roi.getArrayRegion(self.displayedStack, self.image_view.imageItem,
                                                       axes=(1, 2))
@@ -1081,7 +1117,8 @@ class midasWindow(QtWidgets.QMainWindow):
         # self.update_stack()
         file_name = QFileDialog().getSaveFileName(self, "Save image data", 'image_data.tiff', 'image file(*tiff *tif )')
         if file_name[0]:
-            if method == 'raw' :
+            if method == 'raw':
+
                 tf.imsave(str(file_name[0]), self.displayedStack)
                 logger.info(f'Updated Image Saved: {str(file_name[0])}')
                 self.statusbar_main.showMessage(f'Updated Image Saved: {str(file_name[0])}')
@@ -1093,6 +1130,7 @@ class midasWindow(QtWidgets.QMainWindow):
 
         else:
             self.statusbar_main.showMessage('Saving cancelled')
+            logger.info(f'Save failed: {str(file_name[0])}')
             pass
 
     def save_disp_img(self):
@@ -1643,9 +1681,11 @@ class XANESViewer(QtWidgets.QMainWindow):
         self.selected = self.ref_names
         self.fitResultDict = {}
         self.fit_method = self.cb_xanes_fit_model.currentText()
+        self.alphaForLM = self.dsb_alphaForLM.value()
 
         self.decon_ims, self.rfactor, self.coeffs_arr = xanes_fitting(self.im_stack, self.e_list,
-                                                                      self.refs, method=self.fit_method)
+                                                                      self.refs, method=self.fit_method,
+                                                                      alphaForLM = self.alphaForLM)
 
         (self.dim1, self.dim2, self.dim3) = self.im_stack.shape
         self.cn = int(self.dim2 // 2)
@@ -1681,6 +1721,7 @@ class XANESViewer(QtWidgets.QMainWindow):
         self.hsb_xanes_stk.valueChanged.connect(self.display_image_data)
         self.hsb_chem_map.valueChanged.connect(self.display_image_data)
         self.pb_showMultiColor.clicked.connect(self.generateMultiColorView)
+        self.pb_showCompSpec.clicked.connect(self.showComponentXANES)
 
         #menu
         self.actionSave_Chem_Map.triggered.connect(self.save_chem_map)
@@ -1752,12 +1793,12 @@ class XANESViewer(QtWidgets.QMainWindow):
 
             self.inter_ref = interploate_E(self.refs[self.selected], self.xdata1)
             stats, coeffs = xanes_fitting_1D(self.ydata1, self.xdata1, self.refs[self.selected],
-                                             method=self.fit_method, alphaForLM=0.05)
+                                             method=self.fit_method, alphaForLM=self.alphaForLM)
 
         else:
             self.inter_ref = interploate_E(self.refs, self.xdata1)
             stats, coeffs = xanes_fitting_1D(self.ydata1, self.xdata1, self.refs,
-                                             method=self.fit_method, alphaForLM=0.05)
+                                             method=self.fit_method, alphaForLM=self.alphaForLM)
 
         self.fit_ = np.dot(coeffs, self.inter_ref)
         pen = pg.mkPen('g', width=1.5)
@@ -1789,13 +1830,15 @@ class XANESViewer(QtWidgets.QMainWindow):
             self.decon_ims, self.rfactor, self.coeffs_arr = xanes_fitting(self.im_stack,
                                                                           self.e_list + self.sb_e_shift.value(),
                                                                           self.refs[self.selected],
-                                                                          method=self.cb_xanes_fit_model.currentText())
+                                                                          method=self.cb_xanes_fit_model.currentText(),
+                                                                          alphaForLM = self.alphaForLM)
         else:
             # if non athena file with no header is loaded no ref file cannot be edited
             self.decon_ims, self.rfactor, self.coeffs_arr = xanes_fitting(self.im_stack,
                                                                           self.e_list + self.sb_e_shift.value(),
                                                                           self.refs,
-                                                                          method=self.cb_xanes_fit_model.currentText())
+                                                                          method=self.cb_xanes_fit_model.currentText(),
+                                                                          alphaForLM = self.alphaForLM)
 
         # rfactor is a list of all spectra so take the mean
         self.rfactor_mean = np.mean(self.rfactor)
@@ -1810,6 +1853,16 @@ class XANESViewer(QtWidgets.QMainWindow):
 
         # set the rfactor value to the line edit slot
         self.le_r_sq.setText(f'{rfactor_mean :.4f}')
+
+    def showComponentXANES(self):
+        compNum = self.hsb_chem_map.value()
+        currentComp = self.decon_ims.transpose(2, 0, 1)[compNum]
+        currentCompMask = currentComp>0
+        yData = applyMaskGetMeanSpectrum(self.im_stack, currentCompMask)
+        xanes_comp_plot = pg.plot(self.e_list + self.sb_e_shift.value(), yData, title=f'Component_{compNum}',
+                                  pen=pg.mkPen('y', width=2, style=QtCore.Qt.DotLine), symbol='o')
+        xanes_comp_plot.setLabel('bottom', 'Energy (keV)')
+        xanes_comp_plot.setLabel('left', 'Intensity')
 
     def generateMultiColorView(self):
         self.multichanneldict = {}
@@ -3318,6 +3371,15 @@ def flatten_(image_array):
 
 def image_to_pandas(image_array):
     a, b, c = np.shape(image_array)
+    im_array = np.reshape(image_array, ((b * c), a))
+    a, b = im_array.shape
+    df = pd.DataFrame(data=im_array[:, :],
+                      columns=['e' + str(i) for i in range(b)],
+                      index=['s' + str(i) for i in range(a)])
+    return df
+
+def image_to_pandas2(image_array):
+    a, b, c = np.shape(image_array)
     im_array = np.reshape(image_array, (a, (b * c)))
     a, b = im_array.shape
     df = pd.DataFrame(data=im_array[:, :],
@@ -3749,6 +3811,14 @@ def align_stack_iter(stack, ref_stack_void = True, ref_stack = None, transformat
             stack = sr.transform_stack(stack, tmats=tmats)
 
     return np.float32(stack)
+
+
+def applyMaskGetMeanSpectrum(im_stack, mask):
+    """ A 2d mask to multiply with the 3d xanes stack and returns mean spectrum """
+
+    masked_stack = im_stack * mask
+    return get_mean_spectra(masked_stack)
+
 
 def modifyStack(raw_stack, normalizeStack = False, normToPoint = -1,
                 applySmooth = False, smoothWindowSize = 3,
