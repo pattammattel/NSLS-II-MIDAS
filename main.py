@@ -530,6 +530,12 @@ class midasWindow(QtWidgets.QMainWindow):
         self.reloadStack = False
 
     def update_stack(self):
+        # A better function neeeded here to track image calculations,
+        # will be replaced by a function that takes a dictionary as input that tracks the calculations
+
+
+
+
         self.displayedStack = self.im_stack
         self.crop_to_dim()
 
