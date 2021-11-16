@@ -25,7 +25,7 @@ from sklearn import linear_model
 from larch.xafs import preedge
 from pystackreg import StackReg
 
-from PyQt5 import QtWidgets, uic, QtCore
+
 from PyQt5 import QtWidgets, QtCore, QtGui, uic, QtTest
 from PyQt5.QtGui import QMovie
 from PyQt5.QtWidgets import QMessageBox, QFileDialog, QDesktopWidget, QApplication, QSizePolicy
