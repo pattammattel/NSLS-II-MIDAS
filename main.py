@@ -25,7 +25,7 @@ from sklearn import linear_model
 from larch.xafs import preedge
 from pystackreg import StackReg
 
-from PyQt5 import QtWidgets, uic, QtCore
+
 from PyQt5 import QtWidgets, QtCore, QtGui, uic, QtTest
 from PyQt5.QtGui import QMovie
 from PyQt5.QtWidgets import QMessageBox, QFileDialog, QDesktopWidget, QApplication, QSizePolicy
@@ -74,12 +74,6 @@ class jsonEncoder(json.JSONEncoder):
             return obj.tolist()
         else:
             return super(jsonEncoder, self).default(obj)
-
-if hasattr(QtCore.Qt, 'AA_EnableHighDpiScaling'):
-    QtWidgets.QApplication.setAttribute(QtCore.Qt.AA_EnableHighDpiScaling, True)
-
-if hasattr(QtCore.Qt, 'AA_UseHighDpiPixmaps'):
-    QtWidgets.QApplication.setAttribute(QtCore.Qt.AA_UseHighDpiPixmaps, True)
 
 class midasWindow(QtWidgets.QMainWindow):
 
@@ -532,9 +526,6 @@ class midasWindow(QtWidgets.QMainWindow):
     def update_stack(self):
         # A better function neeeded here to track image calculations,
         # will be replaced by a function that takes a dictionary as input that tracks the calculations
-
-
-
 
         self.displayedStack = self.im_stack
         self.crop_to_dim()
