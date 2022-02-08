@@ -10,8 +10,8 @@
    <rect>
     <x>0</x>
     <y>0</y>
-    <width>1364</width>
-    <height>1060</height>
+    <width>1222</width>
+    <height>827</height>
    </rect>
   </property>
   <property name="sizePolicy">
@@ -36,7 +36,7 @@
     <bool>true</bool>
    </property>
    <property name="sizePolicy">
-    <sizepolicy hsizetype="Expanding" vsizetype="MinimumExpanding">
+    <sizepolicy hsizetype="Preferred" vsizetype="Preferred">
      <horstretch>0</horstretch>
      <verstretch>0</verstretch>
     </sizepolicy>
@@ -144,7 +144,7 @@ border-radius: 4px;
           <string notr="true"/>
          </property>
          <property name="currentIndex">
-          <number>2</number>
+          <number>0</number>
          </property>
          <widget class="QWidget" name="page">
           <property name="geometry">
@@ -152,7 +152,7 @@ border-radius: 4px;
             <x>0</x>
             <y>0</y>
             <width>368</width>
-            <height>325</height>
+            <height>285</height>
            </rect>
           </property>
           <attribute name="label">
@@ -582,7 +582,7 @@ border-radius: 4px;
            <rect>
             <x>0</x>
             <y>0</y>
-            <width>300</width>
+            <width>297</width>
             <height>392</height>
            </rect>
           </property>
@@ -849,11 +849,7 @@ border-radius: 4px;
             <x>0</x>
             <y>0</y>
             <width>379</width>
-<<<<<<< HEAD
-            <height>322</height>
-=======
             <height>309</height>
->>>>>>> 96f906c254d5bddf0399196a46d6e1a73b62571f
            </rect>
           </property>
           <attribute name="label">
@@ -1085,19 +1081,15 @@ border-radius: 4px;
           <bool>true</bool>
          </property>
          <property name="currentIndex">
-          <number>2</number>
+          <number>1</number>
          </property>
          <widget class="QWidget" name="page_5">
           <property name="geometry">
            <rect>
             <x>0</x>
             <y>0</y>
-            <width>379</width>
-<<<<<<< HEAD
-            <height>321</height>
-=======
+            <width>347</width>
             <height>169</height>
->>>>>>> 96f906c254d5bddf0399196a46d6e1a73b62571f
            </rect>
           </property>
           <attribute name="label">
@@ -1230,12 +1222,8 @@ border-radius: 4px;
            <rect>
             <x>0</x>
             <y>0</y>
-            <width>379</width>
-<<<<<<< HEAD
-            <height>321</height>
-=======
+            <width>347</width>
             <height>165</height>
->>>>>>> 96f906c254d5bddf0399196a46d6e1a73b62571f
            </rect>
           </property>
           <attribute name="label">
@@ -1355,12 +1343,8 @@ border-radius: 4px;
            <rect>
             <x>0</x>
             <y>0</y>
-            <width>379</width>
-<<<<<<< HEAD
-            <height>321</height>
-=======
-            <height>205</height>
->>>>>>> 96f906c254d5bddf0399196a46d6e1a73b62571f
+            <width>347</width>
+            <height>165</height>
            </rect>
           </property>
           <attribute name="label">
@@ -1471,19 +1455,6 @@ border-radius: 4px;
           </layout>
          </widget>
         </widget>
-       </item>
-       <item row="3" column="0">
-        <spacer name="verticalSpacer_7">
-         <property name="orientation">
-          <enum>Qt::Vertical</enum>
-         </property>
-         <property name="sizeHint" stdset="0">
-          <size>
-           <width>20</width>
-           <height>40</height>
-          </size>
-         </property>
-        </spacer>
        </item>
       </layout>
      </widget>
@@ -1678,12 +1649,10 @@ border-radius: 4px;
        <property name="topMargin">
         <number>11</number>
        </property>
-<<<<<<< HEAD
-=======
-       <item row="2" column="0">
+       <item row="4" column="0">
         <widget class="QGroupBox" name="groupBox_2">
          <property name="sizePolicy">
-          <sizepolicy hsizetype="Preferred" vsizetype="Fixed">
+          <sizepolicy hsizetype="Preferred" vsizetype="Preferred">
            <horstretch>0</horstretch>
            <verstretch>0</verstretch>
           </sizepolicy>
@@ -1779,15 +1748,8 @@ border-radius: 4px;
          </layout>
         </widget>
        </item>
->>>>>>> 96f906c254d5bddf0399196a46d6e1a73b62571f
-       <item row="1" column="0">
+       <item row="3" column="0">
         <widget class="QGroupBox" name="groupBox_8">
-         <property name="sizePolicy">
-          <sizepolicy hsizetype="Preferred" vsizetype="Fixed">
-           <horstretch>0</horstretch>
-           <verstretch>0</verstretch>
-          </sizepolicy>
-         </property>
          <property name="styleSheet">
           <string notr="true">font: 9pt &quot;Segoe UI&quot;;</string>
          </property>
@@ -1797,12 +1759,6 @@ border-radius: 4px;
          <layout class="QGridLayout" name="gridLayout_19">
           <item row="0" column="1">
            <widget class="QGroupBox" name="groupBox_5">
-            <property name="sizePolicy">
-             <sizepolicy hsizetype="Preferred" vsizetype="Fixed">
-              <horstretch>0</horstretch>
-              <verstretch>0</verstretch>
-             </sizepolicy>
-            </property>
             <property name="title">
              <string>Spectrum ROI</string>
             </property>
@@ -1908,128 +1864,24 @@ border-radius: 4px;
          </layout>
         </widget>
        </item>
-       <item row="2" column="0">
-        <widget class="QGroupBox" name="groupBox_2">
+       <item row="6" column="0">
+        <widget class="QToolBox" name="toolBox_3">
          <property name="sizePolicy">
           <sizepolicy hsizetype="Preferred" vsizetype="Preferred">
            <horstretch>0</horstretch>
            <verstretch>0</verstretch>
           </sizepolicy>
          </property>
-         <property name="title">
-          <string>ROI Shape</string>
-         </property>
-         <layout class="QGridLayout" name="gridLayout_38">
-          <item row="0" column="0">
-           <widget class="QRadioButton" name="rb_rect_roi">
-            <property name="sizePolicy">
-             <sizepolicy hsizetype="Preferred" vsizetype="Fixed">
-              <horstretch>0</horstretch>
-              <verstretch>0</verstretch>
-             </sizepolicy>
-            </property>
-            <property name="text">
-             <string>Rectangle</string>
-            </property>
-            <property name="checked">
-             <bool>true</bool>
-            </property>
-           </widget>
-          </item>
-          <item row="0" column="1">
-           <widget class="QRadioButton" name="rb_elli_roi">
-            <property name="sizePolicy">
-             <sizepolicy hsizetype="Preferred" vsizetype="Fixed">
-              <horstretch>0</horstretch>
-              <verstretch>0</verstretch>
-             </sizepolicy>
-            </property>
-            <property name="text">
-             <string>Ellipse</string>
-            </property>
-           </widget>
-          </item>
-          <item row="1" column="0">
-           <widget class="QRadioButton" name="rb_poly_roi">
-            <property name="sizePolicy">
-             <sizepolicy hsizetype="Preferred" vsizetype="Fixed">
-              <horstretch>0</horstretch>
-              <verstretch>0</verstretch>
-             </sizepolicy>
-            </property>
-            <property name="text">
-             <string>Polygon</string>
-            </property>
-            <property name="checked">
-             <bool>false</bool>
-            </property>
-           </widget>
-          </item>
-          <item row="1" column="1">
-           <widget class="QRadioButton" name="rb_circle_roi">
-            <property name="sizePolicy">
-             <sizepolicy hsizetype="Preferred" vsizetype="Fixed">
-              <horstretch>0</horstretch>
-              <verstretch>0</verstretch>
-             </sizepolicy>
-            </property>
-            <property name="text">
-             <string>Circle</string>
-            </property>
-           </widget>
-          </item>
-          <item row="2" column="0">
-           <widget class="QRadioButton" name="rb_line_roi">
-            <property name="sizePolicy">
-             <sizepolicy hsizetype="Preferred" vsizetype="Fixed">
-              <horstretch>0</horstretch>
-              <verstretch>0</verstretch>
-             </sizepolicy>
-            </property>
-            <property name="text">
-             <string>Line</string>
-            </property>
-           </widget>
-          </item>
-          <item row="2" column="1">
-           <widget class="QPushButton" name="pb_show_roi">
-            <property name="sizePolicy">
-             <sizepolicy hsizetype="Preferred" vsizetype="Fixed">
-              <horstretch>0</horstretch>
-              <verstretch>0</verstretch>
-             </sizepolicy>
-            </property>
-            <property name="text">
-             <string>Zoom to ROI</string>
-            </property>
-           </widget>
-          </item>
-         </layout>
-        </widget>
-       </item>
-       <item row="4" column="0">
-        <widget class="QToolBox" name="toolBox_3">
-         <property name="sizePolicy">
-          <sizepolicy hsizetype="Preferred" vsizetype="Fixed">
-           <horstretch>0</horstretch>
-           <verstretch>0</verstretch>
-          </sizepolicy>
-         </property>
          <property name="currentIndex">
-          <number>2</number>
+          <number>1</number>
          </property>
          <widget class="QWidget" name="page_4">
           <property name="geometry">
            <rect>
             <x>0</x>
             <y>0</y>
-<<<<<<< HEAD
-            <width>361</width>
-            <height>193</height>
-=======
             <width>340</width>
-            <height>160</height>
->>>>>>> 96f906c254d5bddf0399196a46d6e1a73b62571f
+            <height>153</height>
            </rect>
           </property>
           <attribute name="label">
@@ -2038,12 +1890,6 @@ border-radius: 4px;
           <layout class="QGridLayout" name="gridLayout_32">
            <item row="0" column="0">
             <widget class="QGroupBox" name="groupBox_3">
-             <property name="sizePolicy">
-              <sizepolicy hsizetype="Preferred" vsizetype="Fixed">
-               <horstretch>0</horstretch>
-               <verstretch>0</verstretch>
-              </sizepolicy>
-             </property>
              <property name="title">
               <string/>
              </property>
@@ -2108,19 +1954,6 @@ border-radius: 4px;
              </layout>
             </widget>
            </item>
-           <item row="1" column="0">
-            <spacer name="verticalSpacer_5">
-             <property name="orientation">
-              <enum>Qt::Vertical</enum>
-             </property>
-             <property name="sizeHint" stdset="0">
-              <size>
-               <width>20</width>
-               <height>40</height>
-              </size>
-             </property>
-            </spacer>
-           </item>
           </layout>
          </widget>
          <widget class="QWidget" name="page_8">
@@ -2128,8 +1961,8 @@ border-radius: 4px;
            <rect>
             <x>0</x>
             <y>0</y>
-            <width>361</width>
-            <height>231</height>
+            <width>340</width>
+            <height>191</height>
            </rect>
           </property>
           <attribute name="label">
@@ -2214,6 +2047,19 @@ border-radius: 4px;
                 </item>
                </layout>
               </item>
+              <item row="4" column="0">
+               <spacer name="verticalSpacer_2">
+                <property name="orientation">
+                 <enum>Qt::Vertical</enum>
+                </property>
+                <property name="sizeHint" stdset="0">
+                 <size>
+                  <width>20</width>
+                  <height>40</height>
+                 </size>
+                </property>
+               </spacer>
+              </item>
               <item row="2" column="0">
                <widget class="QPushButton" name="pb_apply_spec_calc">
                 <property name="text">
@@ -2228,19 +2074,6 @@ border-radius: 4px;
                 </property>
                </widget>
               </item>
-              <item row="4" column="0">
-               <spacer name="verticalSpacer_2">
-                <property name="orientation">
-                 <enum>Qt::Vertical</enum>
-                </property>
-                <property name="sizeHint" stdset="0">
-                 <size>
-                  <width>20</width>
-                  <height>40</height>
-                 </size>
-                </property>
-               </spacer>
-              </item>
              </layout>
             </widget>
            </item>
@@ -2251,21 +2084,16 @@ border-radius: 4px;
            <rect>
             <x>0</x>
             <y>0</y>
-<<<<<<< HEAD
-            <width>386</width>
+            <width>354</width>
             <height>273</height>
-=======
-            <width>365</width>
-            <height>280</height>
->>>>>>> 96f906c254d5bddf0399196a46d6e1a73b62571f
            </rect>
           </property>
           <attribute name="label">
            <string>XANES Normalization</string>
           </attribute>
           <layout class="QGridLayout" name="gridLayout_39">
-           <item row="2" column="0">
-            <widget class="QLabel" name="label_16">
+           <item row="3" column="2">
+            <widget class="QLabel" name="label_25">
              <property name="sizePolicy">
               <sizepolicy hsizetype="Fixed" vsizetype="Preferred">
                <horstretch>0</horstretch>
@@ -2273,7 +2101,10 @@ border-radius: 4px;
               </sizepolicy>
              </property>
              <property name="text">
-              <string>Pre-edge</string>
+              <string>to</string>
+             </property>
+             <property name="alignment">
+              <set>Qt::AlignCenter</set>
              </property>
             </widget>
            </item>
@@ -2303,50 +2134,6 @@ border-radius: 4px;
              </property>
              <property name="text">
               <string>Eo</string>
-             </property>
-            </widget>
-           </item>
-           <item row="3" column="2">
-            <widget class="QLabel" name="label_25">
-             <property name="sizePolicy">
-              <sizepolicy hsizetype="Fixed" vsizetype="Preferred">
-               <horstretch>0</horstretch>
-               <verstretch>0</verstretch>
-              </sizepolicy>
-             </property>
-             <property name="text">
-              <string>to</string>
-             </property>
-             <property name="alignment">
-              <set>Qt::AlignCenter</set>
-             </property>
-            </widget>
-           </item>
-           <item row="2" column="1">
-            <widget class="QDoubleSpinBox" name="dsb_norm_pre1">
-             <property name="sizePolicy">
-              <sizepolicy hsizetype="Preferred" vsizetype="Fixed">
-               <horstretch>0</horstretch>
-               <verstretch>0</verstretch>
-              </sizepolicy>
-             </property>
-             <property name="suffix">
-              <string> eV</string>
-             </property>
-             <property name="decimals">
-              <number>2</number>
-             </property>
-             <property name="minimum">
-              <double>-500.000000000000000</double>
-             </property>
-             <property name="maximum">
-              <double>500.000000000000000</double>
-             </property>
-             <property name="singleStep">
-              <double>1.000000000000000</double>
-             </property>
-             <property name="value">
-              <double>-50.000000000000000</double>
              </property>
             </widget>
            </item>
@@ -2388,6 +2175,69 @@ border-radius: 4px;
              </property>
             </widget>
            </item>
+           <item row="2" column="1">
+            <widget class="QDoubleSpinBox" name="dsb_norm_pre1">
+             <property name="sizePolicy">
+              <sizepolicy hsizetype="Preferred" vsizetype="Fixed">
+               <horstretch>0</horstretch>
+               <verstretch>0</verstretch>
+              </sizepolicy>
+             </property>
+             <property name="suffix">
+              <string> eV</string>
+             </property>
+             <property name="decimals">
+              <number>2</number>
+             </property>
+             <property name="minimum">
+              <double>-500.000000000000000</double>
+             </property>
+             <property name="maximum">
+              <double>500.000000000000000</double>
+             </property>
+             <property name="singleStep">
+              <double>1.000000000000000</double>
+             </property>
+             <property name="value">
+              <double>-50.000000000000000</double>
+             </property>
+            </widget>
+           </item>
+           <item row="2" column="0">
+            <widget class="QLabel" name="label_16">
+             <property name="sizePolicy">
+              <sizepolicy hsizetype="Fixed" vsizetype="Preferred">
+               <horstretch>0</horstretch>
+               <verstretch>0</verstretch>
+              </sizepolicy>
+             </property>
+             <property name="text">
+              <string>Pre-edge</string>
+             </property>
+            </widget>
+           </item>
+           <item row="2" column="3">
+            <widget class="QDoubleSpinBox" name="dsb_norm_pre2">
+             <property name="sizePolicy">
+              <sizepolicy hsizetype="Preferred" vsizetype="Fixed">
+               <horstretch>0</horstretch>
+               <verstretch>0</verstretch>
+              </sizepolicy>
+             </property>
+             <property name="suffix">
+              <string> eV</string>
+             </property>
+             <property name="minimum">
+              <double>-500.000000000000000</double>
+             </property>
+             <property name="maximum">
+              <double>500.000000000000000</double>
+             </property>
+             <property name="value">
+              <double>-10.000000000000000</double>
+             </property>
+            </widget>
+           </item>
            <item row="3" column="0">
             <widget class="QLabel" name="label_17">
              <property name="sizePolicy">
@@ -2417,25 +2267,19 @@ border-radius: 4px;
              </property>
             </widget>
            </item>
-           <item row="2" column="3">
-            <widget class="QDoubleSpinBox" name="dsb_norm_pre2">
+           <item row="4" column="0">
+            <widget class="QLabel" name="label_23">
              <property name="sizePolicy">
-              <sizepolicy hsizetype="Preferred" vsizetype="Fixed">
+              <sizepolicy hsizetype="Fixed" vsizetype="Preferred">
                <horstretch>0</horstretch>
                <verstretch>0</verstretch>
               </sizepolicy>
              </property>
-             <property name="suffix">
-              <string> eV</string>
+             <property name="text">
+              <string>Norm. Order </string>
              </property>
-             <property name="minimum">
-              <double>-500.000000000000000</double>
-             </property>
-             <property name="maximum">
-              <double>500.000000000000000</double>
-             </property>
-             <property name="value">
-              <double>-10.000000000000000</double>
+             <property name="alignment">
+              <set>Qt::AlignRight|Qt::AlignTrailing|Qt::AlignVCenter</set>
              </property>
             </widget>
            </item>
@@ -2477,19 +2321,16 @@ border-radius: 4px;
              </property>
             </widget>
            </item>
-           <item row="4" column="0">
-            <widget class="QLabel" name="label_23">
+           <item row="0" column="0">
+            <widget class="QLabel" name="label_18">
              <property name="sizePolicy">
-              <sizepolicy hsizetype="Fixed" vsizetype="Preferred">
+              <sizepolicy hsizetype="Fixed" vsizetype="Fixed">
                <horstretch>0</horstretch>
                <verstretch>0</verstretch>
               </sizepolicy>
              </property>
              <property name="text">
-              <string>Norm. Order </string>
-             </property>
-             <property name="alignment">
-              <set>Qt::AlignRight|Qt::AlignTrailing|Qt::AlignVCenter</set>
+              <string>Element:</string>
              </property>
             </widget>
            </item>
@@ -2512,19 +2353,6 @@ border-radius: 4px;
              </property>
              <property name="value">
               <double>75.000000000000000</double>
-             </property>
-            </widget>
-           </item>
-           <item row="0" column="0">
-            <widget class="QLabel" name="label_18">
-             <property name="sizePolicy">
-              <sizepolicy hsizetype="Fixed" vsizetype="Fixed">
-               <horstretch>0</horstretch>
-               <verstretch>0</verstretch>
-              </sizepolicy>
-             </property>
-             <property name="text">
-              <string>Element:</string>
              </property>
             </widget>
            </item>
@@ -2555,39 +2383,23 @@ border-radius: 4px;
              </property>
             </widget>
            </item>
-           <item row="7" column="1">
-            <spacer name="verticalSpacer_4">
-             <property name="orientation">
-              <enum>Qt::Vertical</enum>
-             </property>
-             <property name="sizeHint" stdset="0">
-              <size>
-               <width>20</width>
-               <height>40</height>
-              </size>
-             </property>
-            </spacer>
-           </item>
           </layout>
          </widget>
         </widget>
        </item>
-       <item row="5" column="0">
-<<<<<<< HEAD
-        <spacer name="verticalSpacer_4">
-=======
-        <spacer name="verticalSpacer_6">
->>>>>>> 96f906c254d5bddf0399196a46d6e1a73b62571f
-         <property name="orientation">
-          <enum>Qt::Vertical</enum>
+       <item row="2" column="0">
+        <widget class="QListWidget" name="lw_tiffs_folder">
+         <property name="enabled">
+          <bool>false</bool>
          </property>
-         <property name="sizeHint" stdset="0">
-          <size>
-           <width>20</width>
-           <height>40</height>
-          </size>
+        </widget>
+       </item>
+       <item row="0" column="0">
+        <widget class="QLabel" name="label_26">
+         <property name="text">
+          <string>Saved Images (place holder)</string>
          </property>
-        </spacer>
+        </widget>
        </item>
       </layout>
      </widget>
@@ -2599,7 +2411,7 @@ border-radius: 4px;
     <rect>
      <x>0</x>
      <y>0</y>
-     <width>1364</width>
+     <width>1222</width>
      <height>29</height>
     </rect>
    </property>
@@ -2693,6 +2505,7 @@ border-radius: 4px;
     <addaction name="actionNormalize_with_a_Stack"/>
     <addaction name="actionSave_Sum_Image"/>
     <addaction name="actionSave_Mean_Image"/>
+    <addaction name="actionExport_Image_to_CSV"/>
    </widget>
    <widget class="QMenu" name="menuBatch">
     <property name="title">
@@ -2941,7 +2754,7 @@ border-radius: 4px;
   </action>
   <action name="actionSave_Sum_Image">
    <property name="text">
-    <string>Export Sum Image (3D to 2D)</string>
+    <string>Export Sum Image (XYZ to  sum(XY))</string>
    </property>
   </action>
   <action name="actionSubtract_ROI_BG">
@@ -3101,12 +2914,17 @@ border-radius: 4px;
   </action>
   <action name="actionSave_Mean_Image">
    <property name="text">
-    <string>Export Mean Image (3D to 2D)</string>
+    <string>Export Mean Image (XYZ to mean(XY))</string>
    </property>
   </action>
   <action name="actionPlotAllCorrelations">
    <property name="text">
     <string>Plot All Possible Image Correlations</string>
+   </property>
+  </action>
+  <action name="actionExport_Image_to_CSV">
+   <property name="text">
+    <string>Export Image as CSV (XYZ to Z,X*Y)</string>
    </property>
   </action>
  </widget>

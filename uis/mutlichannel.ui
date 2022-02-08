@@ -6,7 +6,7 @@
    <rect>
     <x>0</x>
     <y>0</y>
-    <width>674</width>
+    <width>612</width>
     <height>765</height>
    </rect>
   </property>
@@ -82,7 +82,7 @@ font: 12pt &quot;Segoe UI&quot;;</string>
            <rect>
             <x>0</x>
             <y>0</y>
-            <width>316</width>
+            <width>254</width>
             <height>85</height>
            </rect>
           </property>
@@ -221,8 +221,8 @@ font: 12pt &quot;Segoe UI&quot;;</string>
            <rect>
             <x>0</x>
             <y>0</y>
-            <width>316</width>
-            <height>85</height>
+            <width>98</width>
+            <height>81</height>
            </rect>
           </property>
           <attribute name="label">
@@ -360,7 +360,7 @@ font: 12pt &quot;Segoe UI&quot;;</string>
     <rect>
      <x>0</x>
      <y>0</y>
-     <width>674</width>
+     <width>612</width>
      <height>34</height>
     </rect>
    </property>
@@ -375,6 +375,7 @@ font: 12pt &quot;Segoe UI&quot;;</string>
     <addaction name="actionLoad_Stack"/>
     <addaction name="actionLoad_State_File"/>
     <addaction name="actionSave_State"/>
+    <addaction name="actionSave_Stack_tiff"/>
     <addaction name="actionSave_View"/>
    </widget>
    <addaction name="menuFile"/>
@@ -443,6 +444,11 @@ font: 12pt &quot;Segoe UI&quot;;</string>
    </property>
    <property name="toolTip">
     <string>Load images as a stack of tiff</string>
+   </property>
+  </action>
+  <action name="actionSave_Stack_tiff">
+   <property name="text">
+    <string>Save Stack (.tiff)</string>
    </property>
   </action>
  </widget>
