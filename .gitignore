@@ -4,3 +4,5 @@
 *.png
 *.nor
 *.ipynb
+__pycache__
+.idea
