@@ -2017,7 +2017,7 @@ class XANESViewer(QtWidgets.QMainWindow):
         self.roi_info.setText(f"ROI_Pos: {int(posx)},{int(posy)} ROI_Size: {sizex},{sizey}")
 
         self.xdata1 = self.e_list + self.sb_e_shift.value()
-        self.ydata1 = get_sum_spectra(self.roi_img)
+        self.ydata1 = get_mean_spectra(self.roi_img)
         self.fit_method = self.cb_xanes_fit_model.currentText()
 
         if len(self.selected) != 0:
