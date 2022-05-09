@@ -10,7 +10,7 @@
    <rect>
     <x>0</x>
     <y>0</y>
-    <width>1223</width>
+    <width>1287</width>
     <height>870</height>
    </rect>
   </property>
@@ -1088,8 +1088,8 @@ border-radius: 4px;
            <rect>
             <x>0</x>
             <y>0</y>
-            <width>368</width>
-            <height>186</height>
+            <width>347</width>
+            <height>169</height>
            </rect>
           </property>
           <attribute name="label">
@@ -1344,7 +1344,7 @@ border-radius: 4px;
             <x>0</x>
             <y>0</y>
             <width>368</width>
-            <height>196</height>
+            <height>167</height>
            </rect>
           </property>
           <attribute name="label">
@@ -1869,7 +1869,7 @@ border-radius: 4px;
             <enum>Qt::LeftToRight</enum>
            </property>
            <property name="currentIndex">
-            <number>0</number>
+            <number>2</number>
            </property>
            <widget class="QWidget" name="page_4">
             <property name="geometry">
@@ -1958,7 +1958,7 @@ border-radius: 4px;
               <x>0</x>
               <y>0</y>
               <width>390</width>
-              <height>352</height>
+              <height>315</height>
              </rect>
             </property>
             <attribute name="label">
@@ -2081,7 +2081,7 @@ border-radius: 4px;
               <x>0</x>
               <y>0</y>
               <width>425</width>
-              <height>352</height>
+              <height>315</height>
              </rect>
             </property>
             <attribute name="label">
@@ -2138,7 +2138,7 @@ border-radius: 4px;
                          </sizepolicy>
                         </property>
                         <property name="text">
-                         <string>Element:</string>
+                         <string>Element_Edge:</string>
                         </property>
                         <property name="alignment">
                          <set>Qt::AlignRight|Qt::AlignTrailing|Qt::AlignVCenter</set>
@@ -2193,7 +2193,7 @@ border-radius: 4px;
                          <string>&lt;html&gt;&lt;head/&gt;&lt;body&gt;&lt;p&gt; For mbak algorithm only, must be in &lt;span style=&quot; font-weight:600; font-style:italic;&quot;&gt;element&amp;lt;space&amp;gt;edge&lt;/span&gt; format&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</string>
                         </property>
                         <property name="placeholderText">
-                         <string>Fe K</string>
+                         <string>Fe_K</string>
                         </property>
                        </widget>
                       </item>
@@ -2375,7 +2375,7 @@ border-radius: 4px;
                   </item>
                   <item row="2" column="0" colspan="2">
                    <layout class="QGridLayout" name="gridLayout_31">
-                    <item row="0" column="0" colspan="2">
+                    <item row="2" column="0" colspan="2">
                      <layout class="QHBoxLayout" name="horizontalLayout_16">
                       <item>
                        <widget class="QLabel" name="label_23">
@@ -2411,27 +2411,7 @@ border-radius: 4px;
                       </item>
                      </layout>
                     </item>
-                    <item row="0" column="2">
-                     <widget class="QLabel" name="label_26">
-                      <property name="text">
-                       <string/>
-                      </property>
-                     </widget>
-                    </item>
-                    <item row="1" column="0" colspan="2">
-                     <widget class="QPushButton" name="pb_apply_xanes_norm">
-                      <property name="sizePolicy">
-                       <sizepolicy hsizetype="Preferred" vsizetype="Fixed">
-                        <horstretch>0</horstretch>
-                        <verstretch>0</verstretch>
-                       </sizepolicy>
-                      </property>
-                      <property name="text">
-                       <string>Apply to Spectrum</string>
-                      </property>
-                     </widget>
-                    </item>
-                    <item row="1" column="2">
+                    <item row="3" column="2">
                      <widget class="QCheckBox" name="cb_xanes_flat">
                       <property name="sizePolicy">
                        <sizepolicy hsizetype="Fixed" vsizetype="Fixed">
@@ -2444,7 +2424,20 @@ border-radius: 4px;
                       </property>
                      </widget>
                     </item>
-                    <item row="2" column="0">
+                    <item row="3" column="0" colspan="2">
+                     <widget class="QPushButton" name="pb_apply_xanes_norm">
+                      <property name="sizePolicy">
+                       <sizepolicy hsizetype="Preferred" vsizetype="Fixed">
+                        <horstretch>0</horstretch>
+                        <verstretch>0</verstretch>
+                       </sizepolicy>
+                      </property>
+                      <property name="text">
+                       <string>Apply to Spectrum</string>
+                      </property>
+                     </widget>
+                    </item>
+                    <item row="4" column="0">
                      <widget class="QPushButton" name="pb_apply_norm_to_stack">
                       <property name="sizePolicy">
                        <sizepolicy hsizetype="Preferred" vsizetype="Fixed">
@@ -2457,7 +2450,7 @@ border-radius: 4px;
                       </property>
                      </widget>
                     </item>
-                    <item row="2" column="1" colspan="2">
+                    <item row="4" column="1" colspan="2">
                      <widget class="QCheckBox" name="cb_xanes_postedge">
                       <property name="sizePolicy">
                        <sizepolicy hsizetype="Fixed" vsizetype="Fixed">
@@ -2467,6 +2460,13 @@ border-radius: 4px;
                       </property>
                       <property name="text">
                        <string>Ignore Post Edge (Stack Only)</string>
+                      </property>
+                     </widget>
+                    </item>
+                    <item row="2" column="2">
+                     <widget class="QCheckBox" name="cb_mback">
+                      <property name="text">
+                       <string>MBAK Algorithm</string>
                       </property>
                      </widget>
                     </item>
@@ -2493,7 +2493,7 @@ border-radius: 4px;
     <rect>
      <x>0</x>
      <y>0</y>
-     <width>1223</width>
+     <width>1287</width>
      <height>29</height>
     </rect>
    </property>
